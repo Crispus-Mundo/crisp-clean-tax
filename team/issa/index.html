@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Issa's App Hub — Crisp Clean Tax Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#1B2951;--gold:#C9A961;--cream:#FAF7F0;--ink:#222634;--muted:#62687A;--line:#E2DCCD;--red:#B03030;--green:#2E7D50;--white:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif}
+a{color:var(--navy)}
+header{background:var(--navy);color:var(--cream);border-bottom:5px solid var(--gold)}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+header .wrap{padding:36px 20px 30px}
+.kicker{font-family:Cinzel,serif;color:var(--gold);letter-spacing:.08em;font-size:14px;margin:0 0 10px}
+h1{font-family:Cinzel,serif;font-size:clamp(28px,5vw,44px);margin:0 0 8px;line-height:1.15}
+header p{margin:0;color:#D9DCE6;max-width:640px}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+nav a{color:var(--cream);text-decoration:none;font-size:14px;border:1px solid rgba(201,169,97,.55);padding:6px 12px;border-radius:999px}
+nav a:hover{background:rgba(201,169,97,.18)}
+section{padding:34px 0 6px}
+h2{font-family:Cinzel,serif;color:var(--navy);font-size:24px;margin:0 0 6px}
+.lede{color:var(--muted);margin:0 0 18px}
+.card{background:var(--white);border-radius:16px;box-shadow:0 6px 24px rgba(27,41,81,.08);padding:22px}
+.login{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.fieldlabel{font-size:13px;color:var(--muted);font-weight:500;margin-bottom:6px}
+.fieldval{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-weight:600;color:var(--navy);word-break:break-all}
+button.copy{border:0;background:var(--navy);color:#fff;border-radius:8px;padding:6px 12px;font:600 13px Inter,sans-serif;cursor:pointer;flex:none}
+ul.tight{margin:14px 0 0;padding-left:20px}ul.tight li{margin:4px 0}
+.videos{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+video{width:100%;border-radius:12px;background:var(--navy);display:block}
+.vcap{margin:10px 2px 0;font-weight:600;color:var(--navy)}.vcap span{font-weight:400;color:var(--muted)}
+.group{margin:22px 0 8px;font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--gold);text-transform:uppercase}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.app{display:flex;flex-direction:column}
+.app h3{margin:0 0 2px;font-size:18px;color:var(--navy)}
+.who{font-size:13px;color:var(--muted);margin-bottom:10px}
+.app p{margin:0 0 8px;font-size:15px}
+.how{font-size:14px;background:var(--cream);border-radius:8px;padding:8px 10px;margin:4px 0 12px}
+.held{font-size:13px;color:var(--red);margin:0 0 12px}
+.open{margin-top:auto;display:inline-block;text-align:center;background:var(--navy);color:#fff;text-decoration:none;font-weight:600;border-radius:10px;padding:11px 14px}
+.open.alt{background:transparent;color:var(--navy);border:1.5px solid var(--navy);margin-top:8px}
+.url{font-size:11px;color:var(--muted);word-break:break-all;margin-top:6px}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;counter-reset:s}
+.step{border-top:5px solid var(--gold)}
+.step>b{display:block;color:var(--navy);font-size:17px;margin-bottom:6px}
+.step>b::before{counter-increment:s;content:counter(s) "  ";color:var(--gold)}
+.step p{margin:0;font-size:14px}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.rules h3{margin:0 0 8px;font-family:Cinzel,serif}
+.may{border-top:5px solid var(--green)}.may h3{color:var(--green)}
+.maynot{border-top:5px solid var(--red)}.maynot h3{color:var(--red)}
+.rules ul{margin:0;padding-left:20px}.rules li{margin:5px 0}
+.check label{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.check label:last-child{border-bottom:0}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--navy);flex:none}
+.check input:checked+span{color:var(--muted);text-decoration:line-through}
+.progress{font-weight:600;color:var(--navy);margin-bottom:6px}
+footer{margin:40px 0 0;padding:24px 0 40px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+details.vid{margin:0 0 12px}details.vid summary{cursor:pointer;font-weight:600;color:var(--navy);font-size:14px;padding:8px 0;list-style:none}details.vid summary::-webkit-details-marker{display:none}details.vid summary span{font-weight:400;color:var(--muted)}details.vid video{margin-top:8px}details.wide{max-width:520px}
+ol.paysteps{margin:14px 0 10px;padding-left:22px}ol.paysteps li{margin:7px 0}
+.note{font-size:14px;color:var(--muted);margin-top:10px}
+@media (max-width:760px){.login,.videos,.rules{grid-template-columns:1fr}.flow{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <p class="kicker">CRISP CLEAN · TAX TEAM · CMCC TRAINING INSTITUTE</p>
+  <h1>Issa's App Hub</h1>
+  <p>Every app you need for tax work, how to sign in, two short videos and your trial checklist. Bookmark this page.</p>
+  <nav>
+    <a href="#login">Your login</a><a href="#videos">Videos</a><a href="#apps">Apps</a>
+    <a href="#workflow">Workflow</a><a href="#payroll">Payroll</a><a href="#rules">Ground rules</a><a href="#trial">Trial checklist</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+
+<section id="login">
+  <h2>Your login</h2>
+  <p class="lede">One login for every tax app. Same email, same PIN, everywhere.</p>
+  <div class="card">
+    <div class="login">
+      <div>
+        <div class="fieldlabel">Sign-in email</div>
+        <div class="fieldval"><span id="em">IKARALI@crispcleans.com</span><button class="copy" data-copy="IKARALI@crispcleans.com">Copy</button></div>
+      </div>
+      <div>
+        <div class="fieldlabel">PIN</div>
+        <div class="fieldval"><span>The PIN you already use in the Client Portal</span></div>
+      </div>
+    </div>
+    <ul class="tight">
+      <li>The crispcleans address is only your sign-in name. Mail to it does not arrive, so messages to you go to your personal Gmail.</li>
+      <li>Five wrong PINs pauses your sign-in for 30 minutes. Forgot your PIN? Ask Cyars to reset it.</li>
+      <li>The first time you open each app, read the <b>AI &amp; Client Data Rules</b>, type your name and accept. Once a year.</li>
+      <li>See "Sorry, unable to open the file"? You're signed into several Google accounts. Open the link in a private (incognito) window.</li>
+      <li>Each app shows only the clients assigned to you.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="videos">
+  <h2>Watch first</h2>
+  <p class="lede">Start with these two. Each app below also has its own short video. No sound needed — everything is on screen.</p>
+  <div class="videos">
+    <div class="card">
+      <video controls playsinline preload="metadata" poster="posters/Issa_Overview_1min.jpg" src="videos/Issa_Overview_1min.mp4"></video>
+      <p class="vcap">The overview <span>· 54 seconds</span></p>
+    </div>
+    <div class="card">
+      <video controls playsinline preload="metadata" poster="posters/Issa_Step_by_Step.jpg" src="videos/Issa_Step_by_Step.mp4"></video>
+      <p class="vcap">Step by step <span>· 1 min 47 sec</span></p>
+    </div>
+  </div>
+</section>
+
+<section id="apps">
+  <h2>Your apps</h2>
+  <p class="lede">Every app has its login steps and a short how-to video right on its card. Anything a client would see waits for Cyars' approval.</p>
+
+  <div class="group">Work apps — preparing returns</div>
+  <div class="apps">
+    <div class="card app">
+      <h3>Bookkeeping Processor</h3><div class="who">CMCC · client bookkeeping for tax prep</div>
+      <p>Upload statements, fix sorting, reconcile, and send year totals to the Tax Platform.</p>
+      <div class="how">Sign in: choose <b>Sign in with PIN</b>.</div>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 41 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Bookkeeping.jpg" src="videos/App_Bookkeeping.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbx7xxh_kMNGYG21WE0JOJ5FCzqcst84P8AFMRGj1zSabMGeuUYbeFc5kttScB_-ris_/exec" target="_blank" rel="noopener">Open Bookkeeping</a>
+    </div>
+    <div class="card app">
+      <h3>Tax Platform — AI Tax Agent</h3><div class="who">Crispus Mundo Tax · returns for portal clients</div>
+      <p>Attach documents, run <b>Prepare</b> and <b>Review</b>, and verify proposed lines.</p>
+      <div class="how">Sign in: choose <b>Team sign-in</b>. You're set up as an employee, so your work saves as drafts.</div>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 57 sec — the agent preparing a return</span></summary><video controls playsinline preload="none" poster="posters/App_AI_Tax_Agent.jpg" src="videos/App_AI_Tax_Agent.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbwfNyYoPU947Zj2n_BJyEvXefdj6QkJjp_tIuVojSxoItl3wy5vI02M6Y7CBdvKgSJf/exec?view=agent" target="_blank" rel="noopener">Open AI Tax Agent</a>
+    </div>
+    <div class="card app">
+      <h3>Season Desk</h3><div class="who">Tax Platform · season tracker</div>
+      <p>See every return by stage and what's behind. Move a return's stage after handoff.</p>
+      <div class="how">Same sign-in as the AI Tax Agent.</div>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 15 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Season_Desk.jpg" src="videos/App_Season_Desk.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbwfNyYoPU947Zj2n_BJyEvXefdj6QkJjp_tIuVojSxoItl3wy5vI02M6Y7CBdvKgSJf/exec?view=season" target="_blank" rel="noopener">Open Season Desk</a>
+    </div>
+    <div class="card app">
+      <h3>Review Desk (Andrew)</h3><div class="who">Tax Platform · review gate before filing</div>
+      <p>Link every line to its source and work the 13-item checklist. RED = mismatch, GREEN = possible savings.</p>
+      <div class="how">Same sign-in. Final sign-off is done by a credentialed reviewer.</div>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 24 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Review_Desk.jpg" src="videos/App_Review_Desk.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbwfNyYoPU947Zj2n_BJyEvXefdj6QkJjp_tIuVojSxoItl3wy5vI02M6Y7CBdvKgSJf/exec?view=review" target="_blank" rel="noopener">Open Review Desk</a>
+    </div>
+  </div>
+
+  <div class="group">Client apps — where clients' files live</div>
+  <div class="apps">
+    <div class="card app">
+      <h3>Crisp Clean Client Portal</h3><div class="who">Crisp Clean · existing tax clients</div>
+      <p>Each client's file and plan, documents, forms and messages. Its <b>My apps</b> page lists your apps too.</p>
+      <div class="how">Sign in: choose <b>Team member (intern or staff)</b>.</div>
+      <p class="held">Replies and decisions a client will see go to Cyars' approval queue first.</p>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 23 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Client_Portal.jpg" src="videos/App_Client_Portal.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec" target="_blank" rel="noopener">Open Client Portal</a>
+    </div>
+    <div class="card app">
+      <h3>Crispus Mundo Client Portal</h3><div class="who">Crispus Mundo Tax · new and international sign-ups</div>
+      <p>Where new clients register and upload. Sign-ups flow into the Client Portal every 15 minutes for approval.</p>
+      <div class="how">Sign in: choose <b>Team member? Sign in with your PIN</b>.</div>
+      <p class="held">Answers and emails to clients wait for Cyars to press Approve.</p>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 14 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Mundo_Intake.jpg" src="videos/App_Mundo_Intake.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbwO_Zs4Rb_vM7KzWbasww_UfwrPIUiwA_oS6vvYUEHlUJGzbIQFdD9h6ZcIsGfvFFowNw/exec" target="_blank" rel="noopener">Open Mundo intake</a>
+    </div>
+    <div class="card app">
+      <h3>Crisp Clean Planning Tools</h3><div class="who">Crisp Clean · planning clients with tools turned on</div>
+      <p>Year-end checklist, audit-risk check and the list of documents each client still owes.</p>
+      <div class="how">Easiest way in: open the Client Portal, sign in, tap <b>Planning tools</b>. Passes last 30 minutes.</div>
+      <p class="held">Reminder emails and summaries go out only after Cyars approves them.</p>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 16 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Planning_Tools.jpg" src="videos/App_Planning_Tools.mp4"></video></details>
+      <a class="open" href="https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec" target="_blank" rel="noopener">Open via Client Portal</a>
+      <a class="open alt" href="https://script.google.com/macros/s/AKfycbzfKe7VchT9AcGsurtZyY53w-1VXrOZd5xq7CuNTKyoLBs-C5gzU6d3YHRVL1il8iRSBA/exec?team=1" target="_blank" rel="noopener">Team page (direct)</a>
+    </div>
+  </div>
+
+  <div class="group">Outside tools — their own logins</div>
+  <details class="vid wide"><summary>&#9654; Watch: Teams, Gusto &amp; Homebase <span>· 15 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Teams_Gusto_Homebase.jpg" src="videos/App_Teams_Gusto_Homebase.mp4"></video></details>
+  <div class="apps">
+    <div class="card app">
+      <h3>SuccessTax (STSPro)</h3><div class="who">Professional tax software · filing</div>
+      <p>Key in approved lines after the handoff check passes. Work in form mode (Direct Input).</p>
+      <div class="how">Firm name from Cyars, then your own SuccessTax user and password.</div>
+      <details class="vid"><summary>&#9654; Watch how it works <span>· 25 sec</span></summary><video controls playsinline preload="none" poster="posters/App_SuccessTax.jpg" src="videos/App_SuccessTax.mp4"></video></details>
+      <a class="open" href="https://www.mytaxoffice.com/main/pro/successtax_login.php" target="_blank" rel="noopener">Open SuccessTax</a>
+    </div>
+    <div class="card app">
+      <h3>Microsoft Teams</h3><div class="who">CMCC · standups, spikes, meetings</div>
+      <p>Post your daily standup at the start of each day. Spikes go in the Spike channel.</p>
+      <a class="open" href="https://teams.microsoft.com" target="_blank" rel="noopener">Open Teams</a>
+    </div>
+    <div class="card app">
+      <h3>Gusto</h3><div class="who">Pay</div>
+      <p>Pay details and pay stubs. See <a href="#payroll">Payroll</a> for how hours become pay.</p>
+      <a class="open" href="https://app.gusto.com/login" target="_blank" rel="noopener">Open Gusto</a>
+    </div>
+    <div class="card app">
+      <h3>Homebase</h3><div class="who">Hours and schedule</div>
+      <p>Clock in and out and keep your schedule current.</p>
+      <a class="open" href="https://app.joinhomebase.com" target="_blank" rel="noopener">Open Homebase</a>
+    </div>
+  </div>
+</section>
+
+<section id="workflow">
+  <h2>The workflow</h2>
+  <p class="lede">Every return goes through four steps. Each step hands drafts to the next. A RED flag sends a line back to Prepare.</p>
+  <div class="flow">
+    <div class="card step"><b>Bookkeeping</b><p>Upload, review lines, reconcile one month at a time, then <b>Send to tax return</b>. Skip it for W-2/1099-only clients.</p></div>
+    <div class="card step"><b>Prepare</b><p>Check the preflight, <b>Pull portal documents</b>, press <b>Prepare</b>, then verify every line against its document.</p></div>
+    <div class="card step"><b>Andrew review</b><p>Press <b>Review</b>, open the Review Desk, tie each line to its source, work the 13-item checklist.</p></div>
+    <div class="card step"><b>Handoff</b><p>When the check passes: <b>Build handoff package</b>, key lines into SuccessTax, update the Season Desk.</p></div>
+  </div>
+  <p class="note">Full written steps: <a href="https://claude.ai/artifact/YMGZb3iprPqK6v1tTQ6BZQ" target="_blank" rel="noopener">Crisp Clean Tax Workflow — Trial Guide</a>.</p>
+</section>
+
+<section id="payroll">
+  <h2>Payroll</h2>
+  <p class="lede">How your hours become your pay. Your rate is on your milestone record; your pay period is confirmed by Cyars in writing.</p>
+  <div class="card">
+    <details class="vid wide" open><summary>&#9654; Watch: hours to pay <span>· 18 sec</span></summary><video controls playsinline preload="none" poster="posters/App_Payroll.jpg" src="videos/App_Payroll.mp4"></video></details>
+    <ol class="paysteps">
+      <li><b>Clock in and out in Homebase.</b> Homebase is the record of your hours.</li>
+      <li><b>Post your standup</b> at the start of every work day. No standup = that day didn't happen for audit purposes.</li>
+      <li><b>Check your timesheet</b> before the period closes. Missed a punch? Tell Cyars in writing with the real time — don't guess.</li>
+      <li><b>Cyars reviews and approves</b> your hours against your standups.</li>
+      <li><b>You get paid.</b> Pay details and stubs live in Gusto.</li>
+    </ol>
+    <p class="note">Pay questions go to Cyars in writing so they can be answered in writing.</p>
+    <a class="open" href="https://app.joinhomebase.com" target="_blank" rel="noopener" style="margin-right:8px">Open Homebase</a>
+    <a class="open" href="https://app.gusto.com/login" target="_blank" rel="noopener">Open Gusto</a>
+  </div>
+</section>
+
+<section id="rules">
+  <h2>Ground rules</h2>
+  <div class="rules">
+    <div class="card may"><h3>You may</h3><ul>
+      <li>Upload, run Prepare and Review, verify lines, add questions</li>
+      <li>Fix bookkeeping lines and reconcile statements</li>
+      <li>Draft plans and research memos (they stay DRAFT)</li>
+      <li>Ask Cyars in writing when something looks wrong</li></ul></div>
+    <div class="card maynot"><h3>You may not</h3><ul>
+      <li>Send anything to a client — Cyars approves every client message first</li>
+      <li>Change a client's consent or turn AI on without consent</li>
+      <li>Sign off a return without a verified credential on file</li>
+      <li>Copy client documents or numbers outside these apps</li></ul></div>
+  </div>
+</section>
+
+<section id="trial">
+  <h2>Your trial checklist</h2>
+  <p class="lede">Take the trial client Cyars assigned you through all four steps. Its statements are already in the Bookkeeping Processor. Ticks save in this browser only.</p>
+  <div class="card check" id="checklist">
+    <div class="progress" id="prog"></div>
+    <label><input type="checkbox"><span>Sign in to the Bookkeeping Processor with your email and PIN, and accept the rules</span></label>
+    <label><input type="checkbox"><span>Open your trial client: review 20 lines, fix any wrong category, mark them reviewed</span></label>
+    <label><input type="checkbox"><span>Reconcile one month's bank statement</span></label>
+    <label><input type="checkbox"><span>In the AI Tax Agent, link the trial client's portal file and start its 2025 return</span></label>
+    <label><input type="checkbox"><span>Send the 2025 totals to the Tax Platform</span></label>
+    <label><input type="checkbox"><span>Check the preflight on the trial return and run Prepare</span></label>
+    <label><input type="checkbox"><span>Verify each proposed line against its document</span></label>
+    <label><input type="checkbox"><span>Run Review and work the Andrew checklist in the Review Desk</span></label>
+    <label><input type="checkbox"><span>Try Build handoff package and note what blocks it</span></label>
+    <label><input type="checkbox"><span>Write down what failed, what was unclear and how long each step took — send it to Cyars in writing</span></label>
+  </div>
+  <p class="note">Screenshots help. Crop out client names and numbers before you send them.</p>
+</section>
+
+<footer>
+  CMCC Training Institute · Crisp Clean Tax Team. Client information in these apps is confidential (tax: IRC § 7216). Questions go to Cyars in writing.
+</footer>
+</main>
+
+<script>
+(function(){
+  document.querySelectorAll('button.copy').forEach(function(b){
+    b.addEventListener('click',function(){
+      var t=b.getAttribute('data-copy');
+      try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)},function(){b.textContent='Select & copy'})}catch(e){b.textContent='Select & copy'}
+    });
+  });
+  var KEY='issa-hub-trial-v1', boxes=[].slice.call(document.querySelectorAll('#checklist input'));
+  var saved=[]; try{saved=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
+  boxes.forEach(function(b,i){b.checked=!!saved[i];b.addEventListener('change',upd)});
+  function upd(){
+    var s=boxes.map(function(b){return b.checked});
+    try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}
+    document.getElementById('prog').textContent=s.filter(Boolean).length+' of '+boxes.length+' done';
+  }
+  upd();
+})();
+</script>
+</body>
+</html>

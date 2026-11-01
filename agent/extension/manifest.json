@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Crispus Mundo Tax Agent",
+  "short_name": "Mundo Tax Agent",
+  "version": "1.0.0",
+  "description": "Prepares signed-off returns inside SuccessTax while the preparer watches. Never e-files, signs or pays.",
+  "permissions": ["sidePanel", "scripting", "tabs", "storage"],
+  "host_permissions": ["https://*.mytaxoffice.com/*", "https://script.google.com/*", "https://script.googleusercontent.com/*"],
+  "action": {"default_title": "Open Crispus Mundo Tax Agent", "default_icon": {"16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png"}},
+  "icons": {"16": "icons/icon-16.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png"},
+  "background": {"service_worker": "background.js"},
+  "side_panel": {"default_path": "panel.html"},
+  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'"}
+}

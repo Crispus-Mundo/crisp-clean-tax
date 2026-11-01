@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Crispus Mundo Tax Agent</title>
+<style>
+:root{--navy:#1B2951;--gold:#C9A961;--cream:#FAF7F0}
+body{font:14px system-ui,Segoe UI,sans-serif;background:var(--cream);color:#1d2433;margin:0;padding:12px;min-width:300px}
+header{display:flex;gap:8px;align-items:center;border-bottom:2px solid var(--gold);padding-bottom:8px;margin-bottom:10px}
+header img{width:32px}header b{font:600 16px Georgia,serif;color:var(--navy)}header small{display:block;color:#6b5a2e}
+input,select{width:100%;box-sizing:border-box;padding:9px;border:1px solid #cdbf9a;border-radius:8px;margin:4px 0;font:inherit;background:#fff}
+button{padding:9px 12px;border:0;border-radius:8px;margin:4px 4px 4px 0;background:var(--navy);color:#fff;font:inherit;cursor:pointer}
+button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}button.stop{background:#a4281d;width:100%;font-weight:600}
+button:disabled{opacity:.5}.card{background:#fff;border:1px solid #e4dcc6;border-radius:10px;padding:10px;margin:8px 0}
+.hidden{display:none}.ok{color:#1e6b34}.bad{color:#a4281d}small{color:#5c5c5c}
+pre{white-space:pre-wrap;background:#1B2951;color:#f4efe2;border-radius:8px;padding:8px;max-height:260px;overflow:auto;font-size:12px}
+li{margin:2px 0}
+</style></head>
+<body>
+<header><img src="icons/icon-48.png" alt=""><div><b>Crispus Mundo Tax Agent</b><small>Prepares the return in SuccessTax · you review &amp; e-file</small></div></header>
+<button id="stopAll" class="stop">■ STOP</button>
+<div id="signin" class="card">
+  <b>Sign in</b> <small>(same email and PIN as the Tax Platform)</small>
+  <input id="email" type="email" placeholder="Email" autocomplete="username">
+  <input id="pin" type="password" placeholder="PIN" autocomplete="current-password">
+  <button id="go">Sign in</button>
+  <details><summary><small>Server</small></summary><input id="server" aria-label="Tax Platform address"></details>
+</div>
+<div id="work" class="hidden">
+  <div class="card"><small id="who"></small> <button id="out" class="ghost">Sign out</button></div>
+  <div class="card">
+    <b>1. Pick the return</b> <button id="refresh" class="ghost">↻</button>
+    <select id="ret"></select>
+    <div id="detail"></div>
+    <div id="sdBox" class="hidden"><small>Michigan school district (asked on every SuccessTax screen):</small>
+      <input id="sd" placeholder="e.g. 63290 Walled Lake"><button id="sdSave" class="ghost">Save district</button></div>
+  </div>
+  <div class="card">
+    <b>2.</b> In SuccessTax, sign in and open this client's return in this window.<br>
+    <b>3.</b> <button id="start">▶ Start</button><button id="pause" class="ghost">⏸ Pause</button>
+    <pre id="log" aria-live="polite"></pre>
+    <div id="left"></div>
+  </div>
+</div>
+<p><small id="msg" aria-live="polite"></small></p>
+<script src="page.js"></script>
+<script src="panel.js"></script>
+</body></html>

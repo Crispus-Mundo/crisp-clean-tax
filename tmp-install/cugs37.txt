@@ -1,0 +1,233 @@
+/******************************************************************************
+ * CRISP CLEAN CLIENT PORTAL - CaseUpdates.gs  (v3.7 Case updates, Nov 6, 2026)
+ * ADDITIVE. New file only. Wraps route_ and clientBundle_ and calls straight through
+ * to the originals for everything it does not own. Load after ClientNotices.gs / NoticeGuard.gs.
+ *
+ * What it does
+ *  - A "case update" is what the firm discovered while researching or reviewing documents,
+ *    written in five parts: What we found, The remedy, How we move forward, What you can
+ *    expect, How we will keep you informed. Optional links and a firm-only note.
+ *  - Updates are created as DRAFTS. Nothing reaches the client until Cyars presses Release
+ *    (her approval). "Draft from my notes" fills the five parts from pasted research notes
+ *    (AI only when the client signed the 7216 AI consent; names removed; otherwise a
+ *    structured draft from the notes). She edits before releasing.
+ *  - On release: the update pops up the next time the client opens the portal and stays in
+ *    their "Case updates" section; a short email (title only, no findings or figures) tells
+ *    them to open the portal; a dated copy goes to the client's Drive folder; the client log
+ *    gets a line. The client taps "I understand" or sends a question; Cyars is alerted.
+ *  - Owner login only for firm actions. All writes use insert_/update_ (speed cache safe).
+ ******************************************************************************/
+var CU_V = 'v3.7 case updates';
+if (typeof PP_CACHED === 'object' && PP_CACHED) PP_CACHED.CaseUpdates = 1;   // speed cache; every write goes through insert_/update_
+var SHEETS_CU = {
+  CaseUpdates: ['Id', 'ClientId', 'Person', 'Kind', 'Title', 'Found', 'Remedy', 'NextSteps', 'Expect', 'Comms', 'Links', 'Note',
+    'Status', 'By', 'AiUsed', 'CreatedAt', 'UpdatedAt', 'ReleasedAt', 'EmailedTo', 'DriveFileId', 'SeenAt', 'AckAt', 'AckBy', 'Question', 'QuestionAt']
+};
+Object.keys(SHEETS_CU).forEach(function (k) { if (typeof SHEETS === 'object' && !SHEETS[k]) SHEETS[k] = SHEETS_CU[k]; });
+var CU_KINDS = [['research', 'Research finding'], ['docs', 'Document review'], ['notice', 'IRS or state notice'], ['transcript', 'Account transcript review'],
+  ['plan', 'Plan change'], ['status', 'Status update']];
+var CU_COMMS = ['We will message you here in your portal.', 'We will email you when anything changes.', 'We will call you to go over this.',
+  'We will update you every week until this is resolved.', 'We will update you as soon as we hear back.'];
+
+function cuEnsure_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('CU_READY') === CU_V) return;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+  try {
+    if (props.getProperty('CU_READY') === CU_V) return;
+    var ss = ss_();
+    Object.keys(SHEETS_CU).forEach(function (n) { ensureSheet_(ss, n, SHEETS_CU[n]); delete MEMO_['r:' + n]; });
+    props.setProperty('CU_READY', CU_V);
+    audit_('system', 'upgrade', CU_V + ' CaseUpdates tab');
+  } finally { lock.releaseLock(); }
+}
+function cuKind_(k) { for (var i = 0; i < CU_KINDS.length; i++) if (CU_KINDS[i][0] === k) return CU_KINDS[i][1]; return 'Case update'; }
+function cuUrl_() { try { return setting_('PORTAL_URL') || ScriptApp.getService().getUrl() || ''; } catch (e) { return ''; } }
+function cuDeep_(id) { var b = (typeof PP_BRAND === 'string' && PP_BRAND) ? PP_BRAND : cuUrl_(); return b ? b + '?go=cupd' + (id ? '&sid=' + encodeURIComponent(id) : '') : ''; }
+function cuLinks_(raw) { return (typeof sCleanLinks_ === 'function') ? sCleanLinks_(raw) : String(raw || '').slice(0, 4000); }
+function cuOut_(r, forClient) {
+  var o = { id: r.Id, clientId: r.ClientId, person: r.Person || '', kind: r.Kind || 'research', kindLabel: cuKind_(r.Kind), title: r.Title || '',
+    found: r.Found || '', remedy: r.Remedy || '', next: r.NextSteps || '', expect: r.Expect || '', comms: r.Comms || '',
+    links: (typeof sParseLinks_ === 'function') ? sParseLinks_(r.Links, r.Id) : [], status: r.Status, releasedAt: r.ReleasedAt || '',
+    seenAt: r.SeenAt || '', ackAt: r.AckAt || '', question: r.Question || '', questionAt: r.QuestionAt || '' };
+  if (!forClient) { o.linksRaw = r.Links || ''; o.note = r.Note || ''; o.by = r.By || ''; o.aiUsed = r.AiUsed || ''; o.createdAt = r.CreatedAt; o.updatedAt = r.UpdatedAt; o.emailedTo = r.EmailedTo || ''; o.driveFileId = r.DriveFileId || ''; o.ackBy = r.AckBy || ''; }
+  return o;
+}
+
+/* ---------------- draft from notes ---------------- */
+function cuDraft_(clientId, kind, notes) {
+  notes = String(notes || '').trim();
+  if (notes.length < 3) fail_('Paste or type your research notes first.');
+  var label = cuKind_(kind);
+  var useFile = typeof aiAllowed_ === 'function' && aiAllowed_(clientId);
+  if (typeof aiReady_ === 'function' && aiReady_() && typeof aiJson_ === 'function') {
+    try {
+      var ctx = useFile && typeof clientContext_ === 'function' ? clientContext_(clientId) : '(Not shared: use only the notes below. Do not assume facts about the client.)';
+      var clean = typeof scrubNames_ === 'function' ? scrubNames_(clientId, notes) : notes;
+      var prompt = (typeof rules_ === 'function' ? rules_() + '\n\n' : '') +
+        'TASK: The tax preparer researched a client matter and wrote rough notes. Turn them into a clear CASE UPDATE the client will read in their secure portal. ' +
+        'Keep every fact in the notes; do not add facts about the client. Where the law matters, name the statute, regulation, form or agency. Mark anything uncertain "to confirm". ' +
+        'Plain, calm, professional English at about an 8th-grade reading level, addressed to the client as "you". No flattery. Kind: ' + label + '.\n\n' +
+        'CLIENT FILE (names removed):\n' + ctx + '\n\nPREPARER NOTES:\n' + clean + '\n\n' +
+        'Reply with ONLY this JSON: {"title":"under 70 characters, no dollar amounts","found":"what we discovered and where it came from","remedy":"what fixes it and why that is the right path",' +
+        '"next":"how we move forward, as - bullet lines in order, who does what","expect":"what the client can expect and roughly when","comms":"how and how often we will keep them informed"}';
+      var j = aiJson_(prompt, 3500);
+      if (j && j.title && j.found) return { title: String(j.title).slice(0, 120), found: String(j.found).slice(0, 12000), remedy: String(j.remedy || '').slice(0, 12000),
+        next: String(j.next || '').slice(0, 12000), expect: String(j.expect || '').slice(0, 8000), comms: String(j.comms || '').slice(0, 2000), aiUsed: useFile ? 'Y (notes + client file)' : 'Y (notes only)' };
+    } catch (e) { try { audit_('system', 'case-update-ai-failed', e.message); } catch (x) {} }
+  }
+  var first = notes.split(/(?<=[.!?])\s+/)[0] || notes;
+  return { title: (label + ': ' + first).slice(0, 90), found: notes, remedy: '', next: '- We review this with you.\n- We take the next step once you are comfortable.',
+    expect: 'We will tell you in writing before anything is filed or paid.', comms: CU_COMMS[0], aiUsed: 'N (from your notes)' };
+}
+
+/* ---------------- firm (owner) actions ---------------- */
+function cuAdminData_(extra) {
+  var list = rows_('CaseUpdates').filter(function (r) { return r.Status !== 'deleted'; });
+  var counts = {};
+  list.forEach(function (r) { var k = r.ClientId; counts[k] = counts[k] || { drafts: 0, released: 0, waiting: 0, questions: 0 }; if (r.Status === 'draft') counts[k].drafts++; else { counts[k].released++; if (!r.AckAt) counts[k].waiting++; if (r.Question) counts[k].questions++; } });
+  var clients = rows_('Clients').filter(function (c) { return c.Id && c.Status !== 'Inactive'; }).map(function (c) {
+    var n = counts[c.Id] || { drafts: 0, released: 0, waiting: 0, questions: 0 };
+    return { id: c.Id, name: c.DisplayName, people: people_(c), ai: (typeof aiAllowed_ === 'function' && aiAllowed_(c.Id)), drafts: n.drafts, released: n.released, waiting: n.waiting, questions: n.questions };
+  }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+  var out = { clients: clients, items: list.slice(-300).reverse().map(function (r) { return cuOut_(r, false); }), kinds: CU_KINDS, comms: CU_COMMS,
+    aiReady: (typeof aiReady_ === 'function' && aiReady_()), emailsOn: setting_('CLIENT_NOTICES') === 'Y' };
+  if (extra) Object.keys(extra).forEach(function (k) { out[k] = extra[k]; });
+  return out;
+}
+function cuText_(v, n) { return String(v == null ? '' : v).replace(/\r/g, '').slice(0, n || 12000); }
+function cuSave_(p, who) {
+  var kind = CU_KINDS.some(function (x) { return x[0] === p.kind; }) ? p.kind : 'research';
+  var fields = { Kind: kind, Person: cuText_(p.person, 120), Title: cuText_(p.title, 160).trim(), Found: cuText_(p.found), Remedy: cuText_(p.remedy), NextSteps: cuText_(p.next),
+    Expect: cuText_(p.expect, 8000), Comms: cuText_(p.comms, 2000), Links: cuLinks_(p.links), Note: cuText_(p.note, 8000), UpdatedAt: now_() };
+  if (p.id) {
+    var r = findRow_('CaseUpdates', p.id);
+    if (!r || r.Status === 'deleted') fail_('Update not found.');
+    if (r.Status !== 'draft') { delete fields.Kind; delete fields.Person; }   // released wording can be corrected; who/what kind stays
+    update_('CaseUpdates', r.Id, fields);
+    return cuAdminData_({ openId: r.Id, note: r.Status === 'draft' ? 'Saved. Nothing has gone to the client yet.' : 'Correction saved. The client sees the corrected wording.' });
+  }
+  var clientId = String(p.clientId || '');
+  if (!findRow_('Clients', clientId)) fail_('Pick a client first.');
+  var d = null;
+  if (p.notes && !fields.Found && !fields.Title) d = cuDraft_(clientId, kind, p.notes);
+  var row = insert_('CaseUpdates', { Id: newId_('cu'), ClientId: clientId, Person: fields.Person, Kind: kind, Title: d ? d.title : (fields.Title || cuKind_(kind)),
+    Found: d ? d.found : fields.Found, Remedy: d ? d.remedy : fields.Remedy, NextSteps: d ? d.next : fields.NextSteps, Expect: d ? d.expect : fields.Expect,
+    Comms: d ? d.comms : (fields.Comms || CU_COMMS[0]), Links: fields.Links, Note: d ? cuText_(p.notes, 8000) : fields.Note, Status: 'draft', By: who || 'Cyars', AiUsed: d ? d.aiUsed : 'N (typed)',
+    CreatedAt: now_(), UpdatedAt: now_(), ReleasedAt: '', EmailedTo: '', DriveFileId: '', SeenAt: '', AckAt: '', AckBy: '', Question: '', QuestionAt: '' });
+  return cuAdminData_({ openId: row.Id, note: d ? (d.aiUsed.charAt(0) === 'Y' ? 'Draft written from your notes. Read every part, change anything, then Release.' : 'Draft built from your notes (AI was not used). Fill in the remedy and next steps, then Release.') : 'Draft saved. Nothing has gone to the client yet.' });
+}
+function cuDelete_(p) {
+  var r = findRow_('CaseUpdates', p.id);
+  if (!r) fail_('Update not found.');
+  if (r.Status !== 'draft') fail_('Only drafts can be removed. Released updates stay in the client file.');
+  update_('CaseUpdates', r.Id, { Status: 'deleted', UpdatedAt: now_() });
+  return cuAdminData_({ note: 'Draft removed (kept in the sheet as deleted).' });
+}
+function cuRelease_(p, who) {
+  var r = findRow_('CaseUpdates', p.id);
+  if (!r || r.Status === 'deleted') fail_('Update not found.');
+  if (r.Status === 'released') fail_('Already released.');
+  if (!String(r.Title || '').trim() || !String(r.Found || '').trim()) fail_('Add a title and "What we found" before releasing.');
+  var c = findRow_('Clients', r.ClientId), at = now_();
+  update_('CaseUpdates', r.Id, { Status: 'released', ReleasedAt: at, UpdatedAt: at, SeenAt: '', AckAt: '' });
+  r = findRow_('CaseUpdates', r.Id);
+  var b = brand_(), sent = 0, tried = [];
+  if (setting_('CLIENT_NOTICES') === 'Y' && typeof sEmails_ === 'function') {
+    tried = sEmails_(r.ClientId, r.Person);
+    var names = r.Person ? r.Person : people_(c).join(' and ');
+    var text = 'Hi ' + (names ? firstName_(String(names).split(' and ')[0]) : 'there') + ',\n\n' +
+      b.preparer + ' posted a new case update to your secure client portal: ' + r.Title + '.\n\n' +
+      'It explains what we found, the remedy, how we will move forward and what you can expect. For your privacy the details are only in the portal. ' +
+      'It opens the next time you sign in; please read it and tap "I understand" or ask a question.\n\n' +
+      'Open your portal: ' + cuDeep_(r.Id) + '\n\nQuestions? Reply here or call ' + b.phone + '.\n\n' + b.preparer + '\n' + b.name;
+    tried.forEach(function (to) {
+      try {
+        if (MailApp.getRemainingDailyQuota() > 5) {
+          MailApp.sendEmail({ to: to, subject: 'Case update: ' + r.Title + ' — ' + b.name, body: text + '\n\n' + adaFooter_(), htmlBody: emailHtml_(text),
+            name: b.preparer + ' · ' + b.name, replyTo: b.email });
+          sent++;
+        }
+      } catch (e) { audit_('system', 'case-update-email-failed', e.message); }
+    });
+  }
+  var fileId = '';
+  try {
+    var fold = typeof clientFolder_ === 'function' ? clientFolder_(r.ClientId) : null;
+    if (fold) fileId = fold.createFile('Case update ' + today_() + ' - ' + String(r.Title).replace(/[\\\/:*?"<>|]/g, ' ').slice(0, 70) + '.txt',
+      'CASE UPDATE RELEASED TO CLIENT PORTAL\n\nClient: ' + (c ? c.DisplayName : r.ClientId) + (r.Person ? ' (' + r.Person + ')' : '') + '\nKind: ' + cuKind_(r.Kind) + '\nReleased: ' + at + ' by ' + (who || 'Cyars') +
+      '\nEmailed to: ' + (sent ? tried.slice(0, sent).join(', ') : 'nobody (portal only)') + '\nDraft: ' + r.AiUsed + '\n\nTITLE: ' + r.Title +
+      '\n\nWHAT WE FOUND\n' + r.Found + '\n\nTHE REMEDY\n' + r.Remedy + '\n\nHOW WE MOVE FORWARD\n' + r.NextSteps + '\n\nWHAT YOU CAN EXPECT\n' + r.Expect +
+      '\n\nHOW WE WILL KEEP YOU INFORMED\n' + r.Comms + '\n\nLINKS:\n' + (r.Links || '') + '\n\nFIRM NOTE (not shown to client):\n' + (r.Note || '') + '\n', MimeType.PLAIN_TEXT).getId();
+  } catch (e) { try { audit_('system', 'case-update-drive-failed', e.message); } catch (x) {} }
+  update_('CaseUpdates', r.Id, { EmailedTo: tried.slice(0, sent).join(', '), DriveFileId: fileId });
+  try { clientLog_(r.ClientId, { grp: 'Case updates', source: sent ? 'email sent' : 'firm', actor: who || 'Cyars', action: 'Released a case update: ' + r.Title,
+    detail: 'What we found: ' + r.Found + '\n\nRemedy: ' + r.Remedy + '\n\nNext: ' + r.NextSteps + '\n\nExpect: ' + r.Expect + '\n\nCommunication: ' + r.Comms, link: fileId ? 'https://drive.google.com/open?id=' + fileId : '' }); } catch (e) {}
+  audit_(who || 'admin', 'case-update-released', r.ClientId + ' ' + r.Id + ' emails:' + sent);
+  var msg = 'Released to ' + (c ? c.DisplayName : 'the client') + '\'s portal. It pops up the next time they sign in' + (sent ? ', and a short email went to ' + sent + ' address' + (sent > 1 ? 'es' : '') + '.' :
+    (setting_('CLIENT_NOTICES') !== 'Y' ? '. Client emails are off in Settings, so no email went out.' : '. No email on file, so no email went out.'));
+  return cuAdminData_({ openId: r.Id, note: msg });
+}
+
+/* ---------------- client actions ---------------- */
+function cuClientData_(clientId, s) {
+  var person = (s && s.person) || '';
+  return rows_('CaseUpdates').filter(function (r) { return r.ClientId === String(clientId) && r.Status === 'released' && (!r.Person || !person || r.Person === person); })
+    .map(function (r) { return cuOut_(r, true); }).sort(function (a, b) { return String(b.releasedAt).localeCompare(String(a.releasedAt)); });
+}
+function cuMine_(s, id) { var r = findRow_('CaseUpdates', id); if (!r || r.ClientId !== String(s.clientId) || r.Status !== 'released') fail_('That update is not available.'); return r; }
+function cuSeen_(s, p) { var r = cuMine_(s, p.id); if (!r.SeenAt) update_('CaseUpdates', r.Id, { SeenAt: now_() }); return { ok: true, list: cuClientData_(s.clientId, s) }; }
+function cuAck_(s, p) {
+  var r = cuMine_(s, p.id), who = s.person || s.label || 'Client';
+  if (!r.AckAt) update_('CaseUpdates', r.Id, { AckAt: now_(), AckBy: who, SeenAt: r.SeenAt || now_() });
+  try { clientLog_(s.clientId, { grp: 'Case updates', source: 'client portal', actor: who, action: 'Read and understood a case update', detail: r.Title }); } catch (e) {}
+  return { ok: true, list: cuClientData_(s.clientId, s) };
+}
+function cuAsk_(s, p) {
+  var r = cuMine_(s, p.id), txt = String(p.text || '').trim().slice(0, 3000), who = s.person || s.label || 'Client';
+  if (!txt) fail_('Type your question.');
+  update_('CaseUpdates', r.Id, { Question: (r.Question ? r.Question + '\n---\n' : '') + txt, QuestionAt: now_(), SeenAt: r.SeenAt || now_() });
+  var c = findRow_('Clients', s.clientId);
+  try { notifyTeam_('Case update question: ' + (c ? c.DisplayName : s.clientId), (c ? c.DisplayName : s.clientId) + ' (' + who + ') asked about "' + r.Title + '":\n\n' +
+    (typeof scrubAll_ === 'function' ? scrubAll_(txt) : txt) + '\n\nOpen the portal (Firm login > Case updates): ' + cuUrl_()); } catch (e) {}
+  try { clientLog_(s.clientId, { grp: 'Case updates', source: 'client portal', actor: who, action: 'Asked a question about a case update', detail: r.Title + '\n' + txt }); } catch (e) {}
+  return { ok: true, list: cuClientData_(s.clientId, s) };
+}
+
+/* ---------------- wiring ---------------- */
+var CU_CLIENT = { cuSeen: 'Opened a case update', cuAck: 'Understood a case update', cuAsk: 'Asked about a case update' };
+var CU_ADMIN = { cuAdmin: 1, cuSave: 1, cuRelease: 1, cuDelete: 1 };
+if (typeof ACT_LABEL === 'object' && ACT_LABEL) Object.keys(CU_CLIENT).forEach(function (k) { ACT_LABEL[k] = CU_CLIENT[k]; });
+
+var _cu_route = route_;
+route_ = function (action, p, token) {
+  if (!CU_CLIENT[action] && !CU_ADMIN[action]) return _cu_route(action, p, token);
+  cuEnsure_();
+  var s = session_(token);
+  if (!s) fail_('Your session ended. Please log in again.');
+  p = p || {};
+  if (CU_CLIENT[action]) {
+    if (s.role !== 'client') fail_('That action is not available.');
+    var out = action === 'cuSeen' ? cuSeen_(s, p) : action === 'cuAck' ? cuAck_(s, p) : cuAsk_(s, p);
+    try { logActivity_(s, action, {}); } catch (e) {}
+    return out;
+  }
+  if (s.role !== 'admin') fail_('Only the owner login can use this page.');
+  if (typeof HARDEN_ === 'object') HARDEN_.firmApi = true;
+  try {
+    switch (action) {
+      case 'cuAdmin': return cuAdminData_();
+      case 'cuSave': return cuSave_(p, 'Cyars');
+      case 'cuRelease': return cuRelease_(p, 'Cyars');
+      case 'cuDelete': return cuDelete_(p);
+    }
+  } finally { if (typeof HARDEN_ === 'object') HARDEN_.firmApi = false; }
+};
+
+var _cu_bundle = clientBundle_;
+clientBundle_ = function (clientId, s) {
+  var b = _cu_bundle(clientId, s);
+  try { cuEnsure_(); b.caseUpdates = cuClientData_(clientId, s); } catch (e) { b.caseUpdates = []; }
+  return b;
+};

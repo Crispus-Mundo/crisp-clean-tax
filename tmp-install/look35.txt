@@ -76,6 +76,7 @@ body.lk .nav button{display:inline-flex;align-items:center;gap:8px}
   body.lk .lk-tab button.on:after{content:"";position:absolute;top:0;width:26px;height:3px;border-radius:3px;background:#C9A961}
   body.lk .lk-tab .dot{position:absolute;top:2px;left:calc(50% + 6px);min-width:17px;height:17px;border-radius:9px;background:#A23B3B;color:#fff;font-size:.64rem;line-height:17px;padding:0 4px}
   body.lk main{padding-top:18px}
+  body.lk.lk-side .toast{bottom:calc(92px + env(safe-area-inset-bottom))}
   body.lk .lk-stats{grid-template-columns:repeat(2,1fr);gap:10px}body.lk .lk-stat{padding:12px;gap:10px}body.lk .lk-stat i{width:34px;height:34px;padding:7px}body.lk .lk-stat b{font-size:1.25rem}
   body.lk h1{font-size:1.75rem}
 }
@@ -254,6 +255,7 @@ body.lk-list .lk-cgrid .gcard .bd{flex:1;padding:8px 14px!important}
     var tiles = [['tasks', 'My next steps', open ? open + ' open' : 'All caught up', open], ['docs', 'Upload a document', 'Send papers safely'], ['messages', 'Message Cyars', 'Questions answered here', mN], ['sugg', 'Suggestions', sN ? sN + ' new for you' : 'Ideas for you', sN], ['pay', 'Payments', 'Approve and pay'], ['plan', 'My plan', 'See the full plan']].filter(function (t) { return has(t[0]); }).slice(0, 4);
     var q = '<div class="lk-quick">' + tiles.map(function (t) { return '<button class="lk-tile" data-act="cview" data-k="' + t[0] + '"><i>' + ic(t[0]) + '</i><b>' + e(t[1]) + '</b><span>' + e(t[2]) + '</span>' + (t[3] ? '<em class="n">' + e(t[3]) + '</em>' : '') + '</button>'; }).join('') + '</div>';
     w.insertAdjacentHTML('afterbegin', hero + q);
+    try { var na = w.querySelector('[data-act="ntOpen"]'), nc = na && na.closest('.card'), hz = w.querySelector('.lk-hero'); if (nc && hz) hz.after(nc); } catch (x) {}
     setTimeout(function () { var fg = w.querySelector('.lk-ring .fg'); if (fg) fg.setAttribute('stroke-dashoffset', fg.getAttribute('data-to')); }, 120);
     $$dates(w);
   }

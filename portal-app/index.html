@@ -81,8 +81,8 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
   var GO = { sugg: 1, plan: 1, tasks: 1, goals: 1, docs: 1, pay: 1, messages: 1 };
   var q = new URLSearchParams(location.search);
   var go = q.get('go'); if (!GO[go]) go = '';
-  var sid = (q.get('sid') || '').replace(/[^A-Za-z0-9]/g, '');
-  var target = PORTAL + (go ? '?go=' + go + (sid ? '&sid=' + sid : '') : '');
+  var sid = (q.get('item') || q.get('sid') || '').replace(/[^A-Za-z0-9]/g, '');
+  var target = PORTAL + (go ? '?go=' + go + (sid ? '&item=' + sid : '') : '');
   var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true || q.get('app') === '1';
   document.getElementById('openNow').href = target;
   document.getElementById('openWeb').href = target;

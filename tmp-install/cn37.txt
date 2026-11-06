@@ -1,0 +1,287 @@
+/******************************************************************************
+ * CRISP CLEAN CLIENT PORTAL - ClientNotices.gs  (v3.5 Client notices pop-up, Nov 6, 2026)
+ * ADDITIVE. New file only. Nothing in any other .gs file is edited or removed.
+ * Like Suggestions.gs, this file wraps route_ and clientBundle_ and calls straight
+ * through to the originals for everything it does not own. Load order: LAST file.
+ * The only other change is one new <script> block added at the end of Index.html.
+ *
+ * What it does
+ *  - A "notice" is a pop-up that opens when the client signs in. It shows an
+ *    introduction, the documents they are confirming they received, the items
+ *    they are agreeing to (one checkbox each), the terms (initials on each),
+ *    a choice (for example the payment schedule), and a typed signature.
+ *  - Notices are created HELD. Nothing reaches the client until Cyars releases it
+ *    (run nRelease with the notice Id, or ask Claude to). That is her approval rule.
+ *  - When the client signs: answers are saved in the Notices tab, a dated signed
+ *    copy is saved to the client's Drive folder, a copy is emailed to the client,
+ *    and Cyars is alerted. The client may instead send a question; Cyars is alerted.
+ *  - Speed cache (PortalSpeed.gs) is respected: all writes use insert_/update_.
+ *
+ * Firm tools (run from the editor, no underscore so they show in the Run list):
+ *   nList()            - logs every notice with its Id and status
+ *   nRelease()         - releases the newest HELD notice (or set NOTICE_RELEASE_ID)
+ *   nHold()            - puts a released notice back on hold (set NOTICE_RELEASE_ID)
+ *   nSetupOmar()       - one-time: creates Omar Akbar Khan's scope change notice, HELD
+ ******************************************************************************/
+var NOTICE_V = 'v3.5-notices';
+var NOTICE_RELEASE_ID = '';   // optional: put a notice Id here before running nRelease / nHold
+
+var SHEETS_N = {
+  Notices: ['Id', 'ClientId', 'Title', 'Intro', 'DocsJson', 'ItemsJson', 'TermsJson', 'ChoiceJson', 'Status', 'By',
+    'CreatedAt', 'ReleasedAt', 'ShownAt', 'SignedAt', 'SignedName', 'SignedBy', 'Answers', 'Choice',
+    'Question', 'QuestionAt', 'ReceiptFileId', 'EmailedTo']
+};
+Object.keys(SHEETS_N).forEach(function (k) { if (!SHEETS[k]) SHEETS[k] = SHEETS_N[k]; });
+
+function nEnsure_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('N_READY') === NOTICE_V) return;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return;
+  try {
+    if (props.getProperty('N_READY') === NOTICE_V) return;
+    var ss = ss_();
+    Object.keys(SHEETS_N).forEach(function (n) { ensureSheet_(ss, n, SHEETS_N[n]); try { delete MEMO_['r:' + n]; } catch (e) {} });
+    props.setProperty('N_READY', NOTICE_V);
+    audit_('system', 'upgrade', NOTICE_V + ' Notices tab');
+  } finally { lock.releaseLock(); }
+}
+
+function nJson_(s, d) { try { var v = JSON.parse(String(s || '')); return v == null ? d : v; } catch (e) { return d; } }
+
+function nOut_(r) {
+  return {
+    id: r.Id, title: r.Title, intro: r.Intro, status: r.Status,
+    docs: nJson_(r.DocsJson, []), items: nJson_(r.ItemsJson, []), terms: nJson_(r.TermsJson, []),
+    choice: nJson_(r.ChoiceJson, null), signedAt: r.SignedAt || '', signedName: r.SignedName || '',
+    chosen: r.Choice || '', question: r.Question || '', receiptFileId: r.ReceiptFileId || ''
+  };
+}
+
+function nClientData_(clientId) {
+  return byClient_('Notices', clientId).filter(function (r) {
+    return r.Status === 'released' || r.Status === 'signed';
+  }).map(nOut_);
+}
+
+function nPortalLink_() {
+  return 'https://crispus-mundo.github.io/crisp-clean-tax/my-portal/';
+}
+
+/* ---------------- client actions ---------------- */
+function nMine_(s, id) {
+  var r = findRow_('Notices', id);
+  if (!r || r.ClientId !== s.clientId || (r.Status !== 'released' && r.Status !== 'signed')) fail_('Notice not found.');
+  return r;
+}
+
+function nSeen_(s, p) {
+  var r = nMine_(s, p.id);
+  if (!r.ShownAt) update_('Notices', r.Id, { ShownAt: now_() });
+  return { list: nClientData_(s.clientId) };
+}
+
+function nAsk_(s, p) {
+  var r = nMine_(s, p.id), txt = String(p.text || '').trim().slice(0, 3000);
+  if (!txt) fail_('Type your question.');
+  update_('Notices', r.Id, { Question: txt, QuestionAt: now_() });
+  var c = findRow_('Clients', s.clientId), who = c ? c.DisplayName : s.clientId;
+  try {
+    notifyTeam_('Notice question: ' + who, who + ' has a question about "' + r.Title + '":\n\n' +
+      (typeof scrubAll_ === 'function' ? scrubAll_(txt) : txt) + '\n\nOpen the portal (Firm) to answer.');
+  } catch (e) {}
+  try { audit_(s.person || 'client', 'notice-question', r.Id); } catch (e) {}
+  return { list: nClientData_(s.clientId) };
+}
+
+function nSign_(s, p) {
+  var r = nMine_(s, p.id);
+  if (r.Status === 'signed') fail_('This notice is already signed. A copy is in your file.');
+  var docs = nJson_(r.DocsJson, []), items = nJson_(r.ItemsJson, []), terms = nJson_(r.TermsJson, []), choice = nJson_(r.ChoiceJson, null);
+  var gotDocs = [].concat(p.docs || []).map(String), gotItems = [].concat(p.items || []).map(String), ini = p.initials || {};
+  docs.forEach(function (d) { if (gotDocs.indexOf(String(d.id)) < 0) fail_('Please confirm you received: ' + d.title); });
+  items.forEach(function (it) { if (it.required !== false && gotItems.indexOf(String(it.id)) < 0) fail_('Please check: ' + it.label); });
+  terms.forEach(function (t) {
+    var v = String(ini[t.id] || '').trim();
+    if (!/^[A-Za-z][A-Za-z.\- ]{0,5}$/.test(v)) fail_('Please initial each term.');
+  });
+  var chosenLabel = '';
+  if (choice && choice.options && choice.options.length) {
+    var pick = String(p.choice || '');
+    choice.options.forEach(function (o) { if (String(o.id) === pick) chosenLabel = o.label; });
+    if (!chosenLabel) fail_('Please choose: ' + choice.label);
+  }
+  var name = String(p.name || '').trim().slice(0, 120);
+  if (name.length < 3) fail_('Type your full name to sign.');
+
+  var c = findRow_('Clients', s.clientId), when = now_();
+  var lines = [];
+  lines.push('SIGNED NOTICE (informed consent)');
+  lines.push('');
+  lines.push('Client: ' + (c ? c.DisplayName : s.clientId));
+  lines.push('Notice: ' + r.Title + ' (' + r.Id + ')');
+  lines.push('Signed by: ' + name + ' (portal login: ' + (s.person || s.label || 'client') + ')');
+  lines.push('Date and time: ' + when);
+  lines.push('');
+  lines.push('Documents I confirm I received:');
+  docs.forEach(function (d) { lines.push('  [x] ' + d.title); });
+  lines.push('');
+  lines.push('Items I agreed to:');
+  items.forEach(function (it) { lines.push('  [' + (gotItems.indexOf(String(it.id)) >= 0 ? 'x' : ' ') + '] ' + it.label + (it.price ? ' - ' + it.price : '')); });
+  lines.push('');
+  lines.push('Terms I initialed:');
+  terms.forEach(function (t) { lines.push('  ' + String(ini[t.id]).trim().toUpperCase() + '  ' + t.text); });
+  if (chosenLabel) { lines.push(''); lines.push((choice.label || 'Choice') + ': ' + chosenLabel); }
+  lines.push('');
+  lines.push('Introduction shown to me:');
+  lines.push(String(r.Intro || ''));
+  var text = lines.join('\n');
+
+  var fileId = '';
+  try {
+    if (c && c.FolderId) {
+      fileId = DriveApp.getFolderById(c.FolderId).createFile('Signed notice ' + today_() + ' - ' + String(r.Title).slice(0, 60) + '.txt',
+        text + '\n', MimeType.PLAIN_TEXT).getId();
+    }
+  } catch (e) { try { audit_('system', 'notice-receipt-failed', e.message); } catch (x) {} }
+
+  var sentTo = [];
+  try {
+    sentTo = clientEmails_(s.clientId);
+    if (sentTo.length) {
+      var body = 'Thank you. Here is your signed copy of "' + r.Title + '". It is also saved in your portal file.\n\n' + text +
+        '\n\nOpen your portal: ' + nPortalLink_() +
+        '\n\nIf anything here does not match what we discussed, tell us in writing so we can correct it in writing.' +
+        '\n\nConfidential tax information protected under Internal Revenue Code section 7216.';
+      MailApp.sendEmail({ to: sentTo.join(','), subject: 'Your signed copy: ' + r.Title, body: body + '\n\n' + adaFooter_(),
+        htmlBody: emailHtml_(body), name: setting_('BRAND_NAME') || 'Crisp Clean' });
+    }
+  } catch (e) { try { audit_('system', 'notice-email-failed', e.message); } catch (x) {} }
+
+  update_('Notices', r.Id, {
+    Status: 'signed', SignedAt: when, SignedName: name, SignedBy: s.person || s.label || 'client',
+    Answers: JSON.stringify({ docs: gotDocs, items: gotItems, initials: ini }), Choice: chosenLabel,
+    ReceiptFileId: fileId, EmailedTo: sentTo.join(', ')
+  });
+  try {
+    notifyTeam_('Notice signed: ' + (c ? c.DisplayName : s.clientId),
+      (c ? c.DisplayName : s.clientId) + ' signed "' + r.Title + '".' + (chosenLabel ? '\nChoice: ' + chosenLabel : '') +
+      '\nSigned copy saved to their Drive folder' + (sentTo.length ? ' and emailed to them.' : '.') + '\n\nOpen the portal (Firm) to see it.');
+  } catch (e) {}
+  try { audit_(s.person || 'client', 'notice-signed', r.Id + ' ' + r.Title); } catch (e) {}
+  return { list: nClientData_(s.clientId), ok: true };
+}
+
+/* ---------------- wrappers ---------------- */
+var N_CLIENT = { nSeen: 1, nSign: 1, nAsk: 1 };
+if (typeof ACT_LABEL === 'object' && ACT_LABEL) { ACT_LABEL.nSeen = 'Opened a notice'; ACT_LABEL.nSign = 'Signed a notice'; ACT_LABEL.nAsk = 'Asked about a notice'; }
+
+var _n_route = route_;
+route_ = function (action, p, token) {
+  if (!N_CLIENT[action]) return _n_route(action, p, token);
+  nEnsure_();
+  var s = session_(token);
+  if (!s) fail_('Your session ended. Please log in again.');
+  if (s.role !== 'client') fail_('That action is not available.');
+  p = p || {};
+  var out = action === 'nSeen' ? nSeen_(s, p) : action === 'nAsk' ? nAsk_(s, p) : nSign_(s, p);
+  try { logActivity_(s, action, {}); } catch (e) {}
+  return out;
+};
+
+var _n_bundle = clientBundle_;
+clientBundle_ = function (clientId, s) {
+  var b = _n_bundle(clientId, s);
+  try { nEnsure_(); b.notices = nClientData_(clientId); } catch (e) { b.notices = []; }
+  return b;
+};
+
+/* ---------------- firm tools (run from the editor) ---------------- */
+function nList() {
+  nEnsure_();
+  var out = rows_('Notices').map(function (r) { return [r.Id, r.ClientId, r.Title, r.Status, r.ReleasedAt || '', r.SignedAt || ''].join(' | '); });
+  Logger.log(out.join('\n') || 'No notices yet.');
+  return out.join('\n');
+}
+
+function nRelease() {
+  nEnsure_();
+  var id = NOTICE_RELEASE_ID, list = rows_('Notices');
+  var r = id ? findRow_('Notices', id) : list.filter(function (x) { return x.Status === 'held'; }).pop();
+  if (!r) { Logger.log('No held notice found.'); return 'No held notice found.'; }
+  if (r.Status !== 'held') { Logger.log('Notice ' + r.Id + ' is ' + r.Status + ', not held.'); return r.Status; }
+  update_('Notices', r.Id, { Status: 'released', ReleasedAt: now_() });
+  audit_('Cyars', 'notice-released', r.Id + ' ' + r.Title);
+  Logger.log('Released: ' + r.Id + ' ' + r.Title);
+  return 'Released ' + r.Id;
+}
+
+function nHold() {
+  nEnsure_();
+  var r = NOTICE_RELEASE_ID ? findRow_('Notices', NOTICE_RELEASE_ID) : null;
+  if (!r) { Logger.log('Set NOTICE_RELEASE_ID first.'); return 'Set NOTICE_RELEASE_ID first.'; }
+  if (r.Status === 'signed') { Logger.log('Already signed; left as is.'); return 'signed'; }
+  update_('Notices', r.Id, { Status: 'held' });
+  audit_('Cyars', 'notice-held', r.Id);
+  Logger.log('On hold: ' + r.Id);
+  return 'held';
+}
+
+/* ---------------- one-time: Omar Akbar Khan (Nov 6, 2026) ---------------- */
+function nSetupOmar() {
+  nEnsure_();
+  var c = rows_('Clients').filter(function (x) { return /akbar/i.test(String(x.DisplayName || '')); })[0];
+  if (!c) { Logger.log('Omar not found in Clients.'); return 'not found'; }
+  var exists = byClient_('Notices', c.Id).filter(function (x) { return /OAK-2026-1106/.test(String(x.Title)); })[0];
+  if (exists) { Logger.log('Already created: ' + exists.Id + ' (' + exists.Status + ')'); return exists.Id; }
+
+  var intro = 'Dear Omar Akbar Khan,\n\n' +
+    'Following our October 28 call, here is your Engagement Letter and Quote and a Scope Change Notice. Your engagement with us began with the Iikees 2020-2021 company returns and related accounting ($2,600, paid March 27, 2024). On October 28 you asked us to complete every Iikees company return not yet prepared, prepare your personal returns, work on your Wisconsin balance and answer several questions about past filings. That added work is a scope change. Below is what is added, what it costs, and what is free.\n\n' +
+    'FLAT FEES: Iikees Form 1120-S with your K-1 for 2024 and 2025 at $1,400 per year ($2,800) and your 2025 personal Form 1040 at $500, less a $300 discount = $3,000.\n' +
+    'HOURLY ONLY IF NEEDED ($110/hour, actual time): Iikees 2024-2025 bookkeeping, Wisconsin Form 1NPR for 2024-2025 if required, and the 2024-2025 foreign reporting review (any forms quoted first). A 2024 personal return, if required, is $500.\n' +
+    'NO CHARGE: any 2020-2023 Iikees 1120-S the IRS shows as not filed, the 2021-2023 amended returns to correct the K-1, the Wisconsin 2023 balance work (power of attorney, Department of Revenue call, penalty waiver request, payment plan setup), the 2020-2023 foreign reporting review, copies of returns filed for you, the 2020 balance and 2021 refund explanation, the 2023 Wisconsin residency check and the written answer about Wisconsin. IRS authorization, transcripts and the Iikees address change are included.\n\n' +
+    'TIMELINE: 2025 personal return within 10 days after you sign. Iikees 2024-2025 books and returns within 2 weeks after we receive complete bank statements and invoices. We call the Wisconsin Department of Revenue within 3 business days after you return the signed Form A-222.\n\n' +
+    'Taxes, penalties and interest owed to the IRS or Wisconsin are separate from our fees and are paid directly to them. Nothing is billed until you agree. If anything here does not match what we discussed, use "Ask a question" below or tell us in writing and we will correct it in writing.\n\n' +
+    'Respectfully,\nCyars\nCrisp Clean';
+
+  var docs = [
+    { id: 'd1', title: 'Engagement Letter and Quote (November 2026)' },
+    { id: 'd2', title: 'Scope Change Notice OAK-2026-1106' }
+  ];
+  var items = [
+    { id: 's1', label: 'Iikees Form 1120-S with my Schedule K-1, tax years 2024 and 2025', price: '$1,400 per year ($2,800)' },
+    { id: 's2', label: 'My 2025 personal Form 1040, married filing jointly', price: '$500' },
+    { id: 's3', label: 'My 2024 personal Form 1040, only if Crisp Clean tells me in writing it is required', price: '$500 if needed' },
+    { id: 's4', label: 'Iikees 2024-2025 bookkeeping from my bank statements and invoices', price: '$110/hour, actual time' },
+    { id: 's5', label: 'Wisconsin Form 1NPR for 2024-2025, only if required', price: '$110/hour, actual time' },
+    { id: 's6', label: 'Foreign reporting review for 2024-2025 (Arhpez ownership, foreign accounts); any forms quoted first', price: '$110/hour, actual time' },
+    { id: 's7', label: 'Engagement discount', price: '-$300' },
+    { id: 'f1', label: 'Earlier-year work at no charge: 2020-2023 Iikees 1120-S if needed, 2021-2023 amended returns, Wisconsin 2023 balance work, 2020-2023 foreign reporting review, copies of filed returns and written answers', price: 'No charge' }
+  ];
+  var terms = [
+    { id: 't1', text: 'These items are added to my original engagement for the Iikees 2020-2021 returns and are not covered by the $2,600 paid on March 27, 2024.' },
+    { id: 't2', text: 'Hourly work is billed for actual time at $110 per hour, and Crisp Clean tells me before any hourly item goes past the time we discussed. I see the hours before they are billed.' },
+    { id: 't3', text: 'Items marked "only if required" or "only if needed" are done only after Crisp Clean tells me in writing that they are needed.' },
+    { id: 't4', text: 'A $1,000 deposit is due when I sign. Hourly work and a 2024 personal return, if needed, are added to my last payment.' },
+    { id: 't5', text: 'I am responsible for giving complete and accurate information and keeping the records that support it.' },
+    { id: 't6', text: 'I agree to receive notices, invoices and agreements electronically and to sign them electronically (E-SIGN Act, 15 U.S.C. 7001; Michigan UETA, MCL 450.831 et seq.). I can ask for paper copies or withdraw this consent in writing at any time.' },
+    { id: 't7', text: 'Crisp Clean uses AI tools to help draft, organize and check work. A person reviews all work before it is delivered, and Crisp Clean is responsible for it.' },
+    { id: 't8', text: 'I may stop any item not yet started with written notice; completed work stays owed.' }
+  ];
+  var choice = {
+    label: 'My payment schedule (after the $1,000 deposit)',
+    options: [
+      { id: 'A', label: 'Option A - one payment of $2,000 when my returns are ready for my signature, before filing' },
+      { id: 'B', label: 'Option B - two payments of $1,000: one when my 2025 personal return is ready for signature, one when the Iikees returns are ready' }
+    ]
+  };
+  var row = insert_('Notices', {
+    Id: newId_('nt'), ClientId: c.Id, Title: 'Engagement Letter and Scope Change OAK-2026-1106', Intro: intro,
+    DocsJson: JSON.stringify(docs), ItemsJson: JSON.stringify(items), TermsJson: JSON.stringify(terms), ChoiceJson: JSON.stringify(choice),
+    Status: 'held', By: 'Cyars', CreatedAt: now_()
+  });
+  var id = row && row.Id ? row.Id : (byClient_('Notices', c.Id).pop() || {}).Id;
+  audit_('Cyars', 'notice-created', id + ' (held) for ' + c.DisplayName);
+  Logger.log('Created HELD notice ' + id + ' for ' + c.DisplayName + ' (' + c.Id + ')');
+  return id;
+}

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Crisp Clean Client Portal</title>
+<meta name="description" content="Install the Crisp Clean Client Portal on your phone or computer.">
+<meta name="theme-color" content="#1B2951">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Crisp Clean">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{--navy:#1B2951;--gold:#C9A961;--cream:#FAF7F0;--line:#E2DCCD;--mute:#5A6177}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--cream);color:var(--navy);line-height:1.5}
+header{background:var(--navy);color:var(--cream);border-bottom:3px solid var(--gold);padding:18px 20px;display:flex;align-items:center;gap:12px}
+header img{width:44px;height:44px;border-radius:50%}
+.brand{font:700 1.15rem Georgia,serif;letter-spacing:.18em;color:var(--gold)}
+.tag{font-size:.75rem;letter-spacing:.08em;opacity:.9}
+main{max-width:640px;margin:0 auto;padding:22px 18px 40px}
+h1{font:700 1.6rem Georgia,serif;margin:6px 0 8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:14px 22px;font:600 1rem system-ui,sans-serif;cursor:pointer;text-decoration:none;min-height:48px}
+.navy{background:var(--navy);color:var(--cream)}.gold{background:var(--gold);color:var(--navy)}.ghost{background:transparent;color:var(--navy);border:2px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.muted{color:var(--mute);font-size:.92rem}
+ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
+.hide{display:none!important}
+#splash{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+#splash img{width:96px;height:96px;border-radius:50%}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--gold);display:inline-block;animation:p 1s infinite alternate}
+@keyframes p{to{opacity:.25}}
+</style>
+</head>
+<body>
+<header><img src="icons/icon-192.png" alt=""><div><div class="brand">CRISP CLEAN</div><div class="tag">Tax preparation &middot; Tax planning &middot; Resolution</div></div></header>
+<main>
+  <!-- Shown when the installed app opens -->
+  <section id="splash" class="hide" aria-live="polite">
+    <img src="icons/icon-512.png" alt="Crisp Clean">
+    <h1>Opening your portal</h1>
+    <p><span class="dot"></span></p>
+    <a id="openNow" class="btn navy" href="#">Tap here if it does not open</a>
+  </section>
+
+  <!-- Shown in a normal browser: how to install -->
+  <section id="install">
+    <h1>Get the Crisp Clean app</h1>
+    <p>Put your client portal on your phone or computer like an app: one tap from your home screen or desktop, opens in its own window.</p>
+
+    <div class="card" id="oneTap">
+      <h2 style="margin-top:0;font-size:1.1rem">Install</h2>
+      <p class="muted" id="installNote">If your browser offers it, one tap installs the app.</p>
+      <div class="row"><button id="installBtn" class="btn gold hide" type="button">Install the app</button><a id="openWeb" class="btn navy" href="#">Open the portal now</a></div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0;font-size:1.1rem">iPhone or iPad</h2>
+      <ol><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button (square with an arrow).</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;font-size:1.1rem">Android</h2>
+      <ol><li>Open this page in <b>Chrome</b>.</li><li>Tap <b>Install the app</b> above, or the <b>&#8942;</b> menu &gt; <b>Install app</b> (or <b>Add to Home screen</b>).</li></ol>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0;font-size:1.1rem">Windows or Mac computer</h2>
+      <ol><li>Open this page in <b>Chrome</b> or <b>Microsoft Edge</b>.</li><li>Click <b>Install the app</b> above, or the install icon at the right end of the address bar.</li><li>It shows up in your Start menu / Applications and can be pinned to the taskbar or Dock.</li></ol>
+      <p class="muted">Safari on Mac: File &gt; Add to Dock.</p>
+    </div>
+    <p class="muted">Your plan, numbers and documents stay behind your secure portal login. This app only opens the portal; it does not store any of your information on the device.</p>
+  </section>
+</main>
+<script>
+(function () {
+  var PORTAL = 'https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec';
+  var GO = { sugg: 1, plan: 1, tasks: 1, goals: 1, docs: 1, pay: 1, messages: 1 };
+  var q = new URLSearchParams(location.search);
+  var go = q.get('go'); if (!GO[go]) go = '';
+  var sid = (q.get('sid') || '').replace(/[^A-Za-z0-9]/g, '');
+  var target = PORTAL + (go ? '?go=' + go + (sid ? '&sid=' + sid : '') : '');
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true || q.get('app') === '1';
+  document.getElementById('openNow').href = target;
+  document.getElementById('openWeb').href = target;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+  if (standalone) {
+    document.getElementById('install').classList.add('hide');
+    document.getElementById('splash').classList.remove('hide');
+    setTimeout(function () { location.replace(target); }, 350);
+    return;
+  }
+  var promptEvt = null, btn = document.getElementById('installBtn');
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); promptEvt = e; btn.classList.remove('hide'); document.getElementById('installNote').textContent = 'Tap Install to add the app to this device.'; });
+  btn.addEventListener('click', function () { if (!promptEvt) return; promptEvt.prompt(); promptEvt.userChoice.finally(function () { promptEvt = null; btn.classList.add('hide'); }); });
+  window.addEventListener('appinstalled', function () { document.getElementById('installNote').textContent = 'Installed. Open "Crisp Clean" from your home screen or apps.'; });
+})();
+</script>
+</body>
+</html>

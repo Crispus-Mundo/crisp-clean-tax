@@ -1,0 +1,23 @@
+{
+  "name": "Crisp Clean Client Portal",
+  "short_name": "Crisp Clean",
+  "description": "Your Crisp Clean client portal: your plan, tasks, documents, payments and suggestions. Firm login includes the Suggest tool.",
+  "id": "./",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FAF7F0",
+  "theme_color": "#1B2951",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "My suggestions", "short_name": "Suggestions", "url": "./?app=1&go=sugg", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Upload documents", "short_name": "Documents", "url": "./?app=1&go=docs", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Payments", "short_name": "Payments", "url": "./?app=1&go=pay", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Message us", "short_name": "Messages", "url": "./?app=1&go=messages", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

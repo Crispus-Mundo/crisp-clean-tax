@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>How to use Suggestions — Crisp Clean Client Portal</title>
+<meta name="theme-color" content="#1B2951">
+<meta name="robots" content="noindex">
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<style>
+:root{--navy:#1B2951;--gold:#C9A961;--cream:#FAF7F0;--line:#E2DCCD;--mute:#5A6177}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--cream);color:var(--navy);line-height:1.55}
+header{background:var(--navy);color:var(--cream);border-bottom:3px solid var(--gold);padding:16px 20px;display:flex;align-items:center;gap:12px}
+header img{width:42px;height:42px;border-radius:50%}.brand{font:700 1.1rem Georgia,serif;letter-spacing:.18em;color:var(--gold)}.tag{font-size:.75rem;opacity:.9}
+.hero{display:grid;grid-template-columns:1.1fr 1fr;background:var(--navy);color:var(--cream)}
+.hero .txt{padding:34px 26px}.hero h1{font:700 2rem/1.15 Georgia,serif;margin:6px 0 10px}.hero .k{color:var(--gold);font-weight:700;font-size:.8rem;letter-spacing:.08em}
+.hero img{width:100%;height:100%;object-fit:cover;min-height:240px}
+main{max-width:860px;margin:0 auto;padding:22px 18px 40px}
+video{width:100%;border-radius:14px;background:var(--navy);display:block;box-shadow:0 10px 30px rgba(27,41,81,.18)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:16px 0}
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:0}ol.steps li{counter-increment:s;position:relative;padding:8px 0 8px 48px;border-bottom:1px solid var(--line)}ol.steps li:last-child{border:0}
+ol.steps li:before{content:counter(s);position:absolute;left:0;top:8px;width:32px;height:32px;border-radius:50%;background:var(--gold);color:var(--navy);font:700 1rem Georgia,serif;display:flex;align-items:center;justify-content:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:13px 22px;font-weight:700;text-decoration:none;min-height:48px}.navy{background:var(--navy);color:var(--cream)}.gold{background:var(--gold);color:var(--navy)}
+.row{display:flex;gap:10px;flex-wrap:wrap}.muted{color:var(--mute);font-size:.9rem}
+.people{display:grid;grid-template-columns:96px 1fr;gap:16px;align-items:center}.people img{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--gold)}
+@media(max-width:640px){.hero{grid-template-columns:1fr}.hero img{max-height:260px}}
+</style>
+</head>
+<body>
+<header><img src="../icons/icon-192.png" alt=""><div><div class="brand">CRISP CLEAN</div><div class="tag">Tax preparation &middot; Tax planning &middot; Resolution</div></div></header>
+<section class="hero"><div class="txt"><div class="k">WHAT'S NEW IN YOUR CLIENT PORTAL</div><h1>Suggestions: ideas and next steps, made for you</h1><p>Cyars can now send you ideas, notices and next steps right inside your portal. You read the full write-up, tap the links, and tell us what you think, all in one place.</p></div><img src="woman-phone.jpg" alt="A woman smiling at her phone"></section>
+<main>
+  <video controls playsinline preload="metadata" poster="poster.jpg"><source src="suggestions-how-to.mp4" type="video/mp4">Your browser cannot play this video.</video>
+  <p class="muted">1 minute, no sound needed: every step is written on screen.</p>
+  <div class="card"><h2 style="margin-top:0">How to use it</h2>
+    <ol class="steps">
+      <li><b>Get the app.</b> Open the app link on your phone or computer and tap <b>Install</b>. iPhone: Safari &rsaquo; Share &rsaquo; Add to Home Screen.</li>
+      <li><b>Sign in once.</b> Last name + your 4-digit PIN. On your own device keep <b>"Keep me signed in"</b> checked so the app opens straight to your portal. Leave it unchecked on a shared computer.</li>
+      <li><b>Look for "New from Cyars"</b> at the top of your Home page. You also get an email with the type of notice and a short summary.</li>
+      <li><b>Open Suggestions</b> to see them all, newest first.</li>
+      <li><b>Read the full write-up:</b> what it is, why it may fit you, how it works and what we need from you. Money details stay in the portal, never in email.</li>
+      <li><b>Tell us what you think:</b> "I am interested", "Not now" or "I have a question". Cyars gets your answer right away.</li>
+      <li><b>Sign out any time</b> from the top of any page, or in Account &amp; logins &rsaquo; Stay signed in &rsaquo; Sign out on all devices.</li>
+    </ol>
+  </div>
+  <div class="row"><a class="btn navy" href="../../my-portal/?go=sugg">Open my Suggestions</a><a class="btn gold" href="../">Get the app</a></div>
+  <div class="card people"><img src="man-smile.jpg" alt="A smiling man"><div><b>Questions? We are here.</b><br>Message us inside your portal or call <a href="tel:+12483879226">(248) 387-9226</a>.</div></div>
+  <p class="muted">Photos: Unsplash (models, used under the Unsplash License). Your plan, numbers and documents stay behind your secure portal login.</p>
+</main>
+</body>
+</html>

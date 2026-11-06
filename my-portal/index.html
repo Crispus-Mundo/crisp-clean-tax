@@ -1,5 +1,14 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>your client portal</title><meta http-equiv="refresh" content="0; url=https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec"><meta name="robots" content="noindex">
-<script>location.replace("https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec");</script></head>
+<title>your client portal</title><meta http-equiv="refresh" content="1; url=https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec"><meta name="robots" content="noindex">
+<script>
+// Forwards to the client portal. Nov 6, 2026: keeps portal shortcuts (?go=..., &sid=..., ?page=...) so links in emails open the right page.
+(function () {
+  var P = "https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec";
+  var q = new URLSearchParams(location.search), keep = new URLSearchParams();
+  ["go", "sid", "page", "t", "s", "r"].forEach(function (k) { var v = q.get(k); if (v && /^[A-Za-z0-9_\-.]{1,120}$/.test(v)) keep.set(k, v); });
+  var s = keep.toString();
+  location.replace(P + (s ? "?" + s : ""));
+})();
+</script></head>
 <body style="font-family:system-ui;background:#FAF7F0;color:#1B2951;padding:40px;text-align:center">
 <p>Opening your client portal…</p><p><a href="https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec" style="color:#1B2951">Tap here if it does not open</a></p></body></html>

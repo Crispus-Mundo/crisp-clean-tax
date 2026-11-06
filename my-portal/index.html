@@ -1,11 +1,12 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>your client portal</title><meta http-equiv="refresh" content="1; url=https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec"><meta name="robots" content="noindex">
+<title>your client portal</title><meta http-equiv="refresh" content="3; url=https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec"><meta name="robots" content="noindex">
 <script>
 // Forwards to the client portal. Nov 6, 2026: keeps portal shortcuts (?go=..., &sid=..., ?page=...) so links in emails open the right page.
 (function () {
   var P = "https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec";
   var q = new URLSearchParams(location.search), keep = new URLSearchParams();
-  ["go", "sid", "page", "t", "s", "r"].forEach(function (k) { var v = q.get(k); if (v && /^[A-Za-z0-9_\-.]{1,120}$/.test(v)) keep.set(k, v); });
+  // "sid" is reserved by Google Apps Script (it shows "Page Not Found"), so it is passed on as "item".
+  ["go", "sid", "item", "page", "t", "s", "r"].forEach(function (k) { var v = q.get(k); if (v && /^[A-Za-z0-9_\-.]{1,120}$/.test(v)) keep.set(k === "sid" ? "item" : k, v); });
   var s = keep.toString();
   location.replace(P + (s ? "?" + s : ""));
 })();

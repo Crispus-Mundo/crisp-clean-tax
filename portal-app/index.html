@@ -78,7 +78,7 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
 <script>
 (function () {
   var PORTAL = 'https://script.google.com/macros/s/AKfycbww5S-QVvXhuxUznEo-zGx_xjJJ00JtcM6avEdLEl-jp6VPQZfaYGqhJuwNxLPwA7tz/exec';
-  var GO = { sugg: 1, plan: 1, tasks: 1, goals: 1, docs: 1, pay: 1, messages: 1 };
+  var GO = { sugg: 1, plan: 1, tasks: 1, goals: 1, docs: 1, pay: 1, messages: 1, cupd: 1, estate: 1 };
   var q = new URLSearchParams(location.search);
   var go = q.get('go'); if (!GO[go]) go = '';
   var sid = (q.get('item') || q.get('sid') || '').replace(/[^A-Za-z0-9]/g, '');

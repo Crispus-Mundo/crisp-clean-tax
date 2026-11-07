@@ -1,0 +1,35 @@
+{
+  "name": "CMCC Institute - MUNDO Intern App",
+  "short_name": "CMCC Institute",
+  "description": "CMCC Training Institute scholar app: standups, board, credentials, free certificates, skills, pay and team.",
+  "id": "./",
+  "start_url": "./?src=homescreen",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F7F5F0",
+  "theme_color": "#0E0E10",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "CMCC Institute",
+      "url": "./#scholar"
+    }
+  ]
+}

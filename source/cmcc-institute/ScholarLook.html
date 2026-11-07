@@ -1,0 +1,254 @@
+<!-- ============================================================
+     CMCC Institute - ScholarLook.html (v8.0 look + game, Nov 7 2026)
+     ADDITIVE. Loaded after ScholarPlusUI. Removes nothing: it only
+     restyles, adds real photos, and adds a personal progress layer
+     (points, levels, streaks, badges) computed from data the app
+     already has. No new server calls. ASCII-only on purpose.
+     Photos: Unsplash (free license), hotlinked; when offline the
+     dark brand color shows instead.
+     ============================================================ -->
+<style>
+:root{--lk-ink:#0E0E10;--lk-ink2:#1A1A1F;--lk-gold:#C9A961;--lk-gold2:#E3C98A;--lk-paper:#F7F5F0;--lk-line:#E6E1D7;--lk-mut:#6B6B73}
+body{background:var(--lk-paper);color:var(--lk-ink);font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:#8A6D2B}
+button{background:var(--lk-ink);color:#fff;border-radius:10px}
+button:hover{background:#2A2A31}
+button.gold{background:var(--lk-gold);color:var(--lk-ink)}
+button.gold:hover{background:var(--lk-gold2)}
+button.ghost{background:#EFECE4;color:var(--lk-ink)}
+.card{border:1px solid var(--lk-line);border-radius:14px;box-shadow:0 2px 10px rgba(14,14,16,.05)}
+.card h2,.sp-hero h2{color:var(--lk-ink)}
+label:not(.chk){color:var(--lk-ink)}
+.toast,.busy-chip{background:var(--lk-ink)}
+.busy-bar{background:var(--lk-gold)}
+
+/* top bar */
+.top{background:var(--lk-ink)!important;padding:12px 20px;border-bottom:2px solid var(--lk-gold)}
+.top h1{font-family:Georgia,serif;letter-spacing:.3px}
+.top h1:after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--lk-gold);margin-left:8px;vertical-align:middle}
+.avatar{background:var(--lk-gold);color:var(--lk-ink);border:2px solid #2E2E35}
+
+/* hub nav */
+#nav.hubs button{background:#fff;color:var(--lk-ink);border:1px solid var(--lk-line);font-weight:600}
+#nav.hubs button:hover{border-color:var(--lk-gold)}
+#nav.hubs button.on{background:var(--lk-ink);color:#fff;border-color:var(--lk-ink);box-shadow:inset 0 -3px 0 var(--lk-gold)}
+#subnav{background:#ECE8DF}
+
+/* photo banner on each section */
+.lk-ban{position:relative;height:118px;border-radius:14px;overflow:hidden;margin:4px 0 14px;background:var(--lk-ink2) center/cover no-repeat}
+.lk-ban:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(14,14,16,.88) 0%,rgba(14,14,16,.55) 55%,rgba(14,14,16,.15) 100%)}
+.lk-ban .in{position:relative;padding:20px 22px;color:#fff}
+.lk-ban .k{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--lk-gold2)}
+.lk-ban .t{font-family:Georgia,serif;font-size:24px;margin-top:4px}
+
+/* home hero */
+.sp-hero.lk-photo{position:relative;border:none;color:#fff;padding:0;overflow:hidden;background:var(--lk-ink2) center/cover no-repeat}
+.sp-hero.lk-photo:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,14,16,.55) 0%,rgba(14,14,16,.92) 62%)}
+.sp-hero.lk-photo > *{position:relative}
+.sp-hero.lk-photo .lk-pad{padding:26px 22px 20px}
+.sp-hero.lk-photo h2{color:#fff;font-size:28px}
+.sp-hero.lk-photo .mut{color:#D8D4CA}
+.sp-hero.lk-photo .sp-grid{padding:0 22px 22px;margin-top:6px}
+.sp-hero.lk-photo .sp-go{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;backdrop-filter:blur(2px)}
+.sp-hero.lk-photo .sp-go:hover{background:rgba(201,169,97,.22);border-color:var(--lk-gold)}
+.sp-hero.lk-photo .sp-go span{color:#CFCAC0}
+.sp-hero.lk-photo .sp-alert,.sp-hero.lk-photo .sp-note{background:rgba(255,255,255,.92);color:var(--lk-ink)}
+.sp-hero.lk-photo .lk-pad > div{margin-left:0}
+
+/* game strip */
+.lk-game{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;margin:16px 0 4px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(201,169,97,.45)}
+.lk-ring{width:78px;height:78px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;font-family:Georgia,serif}
+.lk-ring b{font-size:22px;color:#fff;line-height:1}
+.lk-ring span{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--lk-gold2)}
+.lk-stats{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:#E8E4DA}
+.lk-stats b{color:#fff;font-size:18px;display:block;font-family:Georgia,serif}
+.lk-bar{height:7px;border-radius:9px;background:rgba(255,255,255,.15);margin-top:8px;overflow:hidden}
+.lk-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--lk-gold),var(--lk-gold2))}
+.lk-next{font-size:12px;color:#CFCAC0;margin-top:5px}
+.lk-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.lk-badge{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.22);color:#9C978C}
+.lk-badge.on{border-color:var(--lk-gold);background:rgba(201,169,97,.18);color:#fff}
+.lk-badge.on:before{content:"\2605  ";color:var(--lk-gold2)}
+.lk-tip{font-size:12px;color:#CFCAC0;margin-top:8px}
+.lk-credit{font-size:10px;color:#9C978C;text-align:right;margin:4px 2px 0}
+
+/* login: photo split screen */
+#loginPage{min-height:100vh;background:var(--lk-ink)}
+#loginPage:not([style*="none"]){display:flex!important}
+#loginPage .lk-side{flex:1.15;position:relative;min-height:100vh;background:var(--lk-ink2) center/cover no-repeat}
+#loginPage .lk-side:before{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(14,14,16,.25),rgba(14,14,16,.9))}
+#loginPage .lk-side .in{position:absolute;left:44px;right:44px;bottom:48px;color:#fff}
+#loginPage .lk-side .k{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--lk-gold2)}
+#loginPage .lk-side h2{font-family:Georgia,serif;font-size:38px;line-height:1.15;margin:10px 0 12px}
+#loginPage .lk-side p{color:#DCD8CE;max-width:460px;font-size:15px}
+#loginPage .login{flex:1;max-width:none;margin:0;padding:56px 48px;background:var(--lk-paper);display:flex;flex-direction:column;justify-content:center}
+#loginPage .login > *{max-width:420px;width:100%;margin-left:auto;margin-right:auto}
+#loginPage .login h1{font-family:Georgia,serif;font-size:32px}
+.tabs3 button{border-radius:10px;border-bottom:none!important;background:#ECE8DF;color:var(--lk-ink)}
+.tabs3 button.on{background:var(--lk-ink);color:#fff;box-shadow:inset 0 -3px 0 var(--lk-gold)}
+#loginPage input[type=text],#loginPage input[type=email],#loginPage input[type=password],#loginPage select{padding:12px;border-radius:10px}
+#siBtn{padding:13px;font-size:15px;background:var(--lk-ink)}
+@media (max-width:820px){
+  #loginPage{flex-direction:column}
+  #loginPage .lk-side{min-height:230px;flex:none}
+  #loginPage .lk-side .in{left:22px;right:22px;bottom:20px}
+  #loginPage .lk-side h2{font-size:26px}
+  #loginPage .lk-side p{display:none}
+  #loginPage .login{padding:26px 20px 40px}
+  .lk-ban{height:96px}
+  .lk-ban .t{font-size:20px}
+  .lk-game{grid-template-columns:1fr}
+}
+</style>
+<script>
+/* ---------- photos (Unsplash, free license) ---------- */
+var LK_U='https://images.unsplash.com/photo-';
+var LK_Q='?auto=format&fit=crop&q=70&w=';
+var LK_PH={
+  login:'1531482615713-2afd69097998',
+  home:'1758270705518-b61b40527e76',
+  'My Work':'1593698054469-2bb6fdf4b512',
+  'Growth':'1541339907198-e08756dedf3f',
+  'Pay':'1554224155-6726b3ff858f',
+  'Files':'1554224154-26032ffc0d07',
+  'Team':'1572021335469-31706a17aaef',
+  'Account':'1573497620053-ea5300f94f21',
+  'Admin':'1766669031794-fbffa6b4f066'
+};
+var LK_LINE={
+  'My Work':'Show up, ship it, say what is blocking you',
+  'Growth':'Every certificate is proof you can do the work',
+  'Pay':'Your hours, your pay, on the record',
+  'Files':'Everything you have built, in one place',
+  'Team':'You are not doing this alone',
+  'Account':'Your sign-in, your settings',
+  'Admin':'Run the program'
+};
+function lkImg(id,w){return 'url("'+LK_U+id+LK_Q+(w||1400)+'")'}
+
+/* ---------- login photo panel ---------- */
+(function(){
+  try{
+    var lp=document.getElementById('loginPage'); if(!lp||lp.querySelector('.lk-side')) return;
+    var s=document.createElement('div'); s.className='lk-side';
+    s.style.backgroundImage=lkImg(LK_PH.login,1600);
+    s.innerHTML='<div class="in"><div class="k">CMCC Training Institute</div>'+
+      '<h2>Real work. Real credentials.<br>A real start.</h2>'+
+      '<p>Tax, finance and operations training with paid hours, free industry certificates, and a team that has your back.</p></div>';
+    lp.insertBefore(s,lp.firstChild);
+  }catch(e){}
+})();
+
+/* ---------- game layer: computed from data already loaded ---------- */
+var LK_LEVELS=[[0,'Intern'],[150,'Associate'],[400,'Analyst'],[800,'Specialist'],[1500,'Lead'],[2500,'Fellow']];
+var LK_PTS={standup:10,module:25,cred:50,skill:30,checkin:15};
+function lkSame(a,b){return String(a||'').trim().toLowerCase()===String(b||'').trim().toLowerCase()}
+function lkDay(d){return String(d||'').slice(0,10)}
+function lkStreak(days){
+  /* consecutive weekdays with a standup, counting back from today
+     (today may still be open, so a missing today does not break it) */
+  var set={}; days.forEach(function(d){set[d]=1});
+  var t=new Date(), n=0, first=true;
+  for(var i=0;i<60;i++){
+    var dw=t.getDay();
+    if(dw!==0&&dw!==6){
+      var k=t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2);
+      if(set[k]) n++;
+      else if(!first) break;
+      first=false;
+    }
+    t.setDate(t.getDate()-1);
+  }
+  return n;
+}
+function lkScore(){
+  var me=(typeof myName==='function')?myName():'';
+  var st=(typeof STATE!=='undefined'&&STATE)||{}, sp=(typeof SP_ST!=='undefined'&&SP_ST)||{};
+  var ds=(st.dsu||[]).filter(function(d){return lkSame(d.who,me)}).map(function(d){return lkDay(d.date)});
+  var uniq={}; ds.forEach(function(d){if(d)uniq[d]=1}); var standups=Object.keys(uniq).length;
+  var mods=0; try{ mods=modCount(myScholar()); }catch(e){}
+  var creds=(sp.credProgress||[]).filter(function(r){return lkSame(r.scholar,me)&&r.status==='Earned'}).length;
+  var credsGoing=(sp.credProgress||[]).filter(function(r){return lkSame(r.scholar,me)&&(r.status==='In progress'||r.status==='Submitted')}).length;
+  var skills=(sp.skillChecks||[]).filter(function(r){return lkSame(r.scholar,me)&&r.status==='Signed off'}).length;
+  var checkins=(sp.checkins||[]).filter(function(r){return lkSame(r.scholar,me)}).length;
+  var pts=standups*LK_PTS.standup+mods*LK_PTS.module+creds*LK_PTS.cred+skills*LK_PTS.skill+checkins*LK_PTS.checkin;
+  var lv=0; for(var i=0;i<LK_LEVELS.length;i++) if(pts>=LK_LEVELS[i][0]) lv=i;
+  var cur=LK_LEVELS[lv], nxt=LK_LEVELS[lv+1];
+  var pct=nxt?Math.round((pts-cur[0])*100/(nxt[0]-cur[0])):100;
+  var streak=lkStreak(Object.keys(uniq));
+  var badges=[
+    ['First standup',standups>=1],['5-day streak',streak>=5],['10 standups',standups>=10],
+    ['First certificate',creds>=1],['3 certificates',creds>=3],['First skill signed off',skills>=1],
+    ['5 skills signed off',skills>=5],['Weekly check-in x4',checkins>=4],['5 modules done',mods>=5]
+  ];
+  return {pts:pts,level:cur[1],lvNum:lv+1,next:nxt,pct:Math.max(0,Math.min(100,pct)),streak:streak,
+    standups:standups,mods:mods,creds:creds,credsGoing:credsGoing,skills:skills,checkins:checkins,badges:badges};
+}
+function lkTip(g){
+  var today=new Date().toISOString().slice(0,10);
+  var posted=((STATE&&STATE.dsu)||[]).some(function(d){return lkSame(d.who,myName())&&lkDay(d.date)===today});
+  if(!posted) return 'Post today\'s standup for +'+LK_PTS.standup+' and keep your streak alive.';
+  if(g.credsGoing) return 'You have '+g.credsGoing+' certificate'+(g.credsGoing>1?'s':'')+' in progress. Finishing one is +'+LK_PTS.cred+'.';
+  if(!g.creds) return 'Start a free certificate under Growth > Credentials. Each one earned is +'+LK_PTS.cred+'.';
+  return 'Ask a supervisor to sign off a skill you have practiced: +'+LK_PTS.skill+'.';
+}
+function lkGameHtml(){
+  var g=lkScore();
+  var ring='background:conic-gradient(var(--lk-gold) '+(g.pct*3.6)+'deg,rgba(255,255,255,.12) 0)';
+  return '<div class="lk-game">'+
+    '<div class="lk-ring" style="'+ring+'"><div class="lk-ring" style="width:64px;height:64px;background:#141418"><span>Level</span><b>'+g.lvNum+'</b></div></div>'+
+    '<div><div style="font-family:Georgia,serif;font-size:18px">'+esc(g.level)+' &middot; <span style="color:var(--lk-gold2)">'+g.pts+' pts</span></div>'+
+    '<div class="lk-bar"><i style="width:'+g.pct+'%"></i></div>'+
+    '<div class="lk-next">'+(g.next?(g.next[0]-g.pts)+' pts to '+esc(g.next[1]):'Top level reached')+'</div>'+
+    '<div class="lk-stats" style="margin-top:10px">'+
+      '<div><b>'+g.streak+'</b>day streak</div><div><b>'+g.standups+'</b>standups</div>'+
+      '<div><b>'+g.creds+'</b>certificates</div><div><b>'+g.skills+'</b>skills signed off</div><div><b>'+g.mods+'</b>modules</div></div>'+
+    '<div class="lk-badges">'+g.badges.map(function(b){return '<span class="lk-badge'+(b[1]?' on':'')+'">'+esc(b[0])+'</span>'}).join('')+'</div>'+
+    '<div class="lk-tip">'+lkTip(g)+'</div>'+
+    '</div></div>';
+}
+function lkHowPoints(){
+  return '<div class="card"><h2>How points work</h2><p class="mut">Points come only from real work already recorded in the app. Nothing here changes pay or grades.</p>'+
+    '<table style="width:100%;margin-top:8px;font-size:14px"><tr><td>Standup posted (one per day)</td><td><b>+'+LK_PTS.standup+'</b></td></tr>'+
+    '<tr><td>Training module completed</td><td><b>+'+LK_PTS.module+'</b></td></tr>'+
+    '<tr><td>Weekly check-in submitted</td><td><b>+'+LK_PTS.checkin+'</b></td></tr>'+
+    '<tr><td>Skill signed off by a supervisor</td><td><b>+'+LK_PTS.skill+'</b></td></tr>'+
+    '<tr><td>Certificate earned</td><td><b>+'+LK_PTS.cred+'</b></td></tr></table>'+
+    '<p class="mut" style="margin-top:8px">Levels: '+LK_LEVELS.map(function(l){return esc(l[1])+' '+l[0]}).join(' &middot; ')+'</p></div>';
+}
+
+/* ---------- wrap showTab: photo banner per section + photo hero on Home ---------- */
+var _lkShowTab=showTab;
+showTab=function(id){
+  _lkShowTab(id);
+  try{
+    var body=$('body'); if(!body) return;
+    var cur=CURTAB;
+    if(cur==='Home'){
+      var hero=body.querySelector('.sp-hero');
+      if(hero&&!hero.classList.contains('lk-photo')){
+        hero.classList.add('lk-photo');
+        hero.style.backgroundImage=lkImg(LK_PH.home,1600);
+        var grid=hero.querySelector('.sp-grid');
+        var pad=document.createElement('div'); pad.className='lk-pad';
+        while(hero.firstChild&&hero.firstChild!==grid) pad.appendChild(hero.firstChild);
+        hero.insertBefore(pad,hero.firstChild);
+        if(!STATE.isStaff){ pad.insertAdjacentHTML('beforeend',lkGameHtml()); }
+        var cr=document.createElement('div'); cr.className='lk-credit'; cr.textContent='Photos: Unsplash';
+        hero.parentNode.insertBefore(cr,hero.nextSibling);
+      }
+      return;
+    }
+    var hub=(typeof spHubOf==='function')?spHubOf(cur):null;
+    if(!hub||!LK_PH[hub.id]||body.querySelector('.lk-ban')) return;
+    var b=document.createElement('div'); b.className='lk-ban';
+    b.style.backgroundImage=lkImg(LK_PH[hub.id],1400);
+    b.innerHTML='<div class="in"><div class="k">'+esc(hub.id)+' &middot; '+esc(cur)+'</div><div class="t">'+esc(LK_LINE[hub.id]||cur)+'</div></div>';
+    body.insertBefore(b,body.firstChild);
+    if(cur==='My Progress'&&!STATE.isStaff){ b.insertAdjacentHTML('afterend','<div class="sp-hero lk-photo" style="background-image:'+lkImg(LK_PH.Growth,1400).replace(/"/g,'&quot;')+'"><div class="lk-pad">'+lkGameHtml()+'</div></div>'+lkHowPoints()); }
+  }catch(e){}
+};
+/* refresh the game numbers once ScholarPlus data lands */
+var _lkSpLoad=(typeof spLoad==='function')?spLoad:null;
+if(_lkSpLoad){ spLoad=function(after){ _lkSpLoad(function(){ if(after) after(); else if(CURTAB==='Home'||CURTAB==='My Progress'||SP_VIEWS[CURTAB]) showTab(CURTAB); }); }; }
+</script>

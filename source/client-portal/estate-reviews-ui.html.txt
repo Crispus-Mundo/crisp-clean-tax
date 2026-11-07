@@ -1,0 +1,224 @@
+
+<script>
+/* v3.9 Estate readiness + attorney handoff + review requests (Nov 7, 2026). Additive; nothing above changed. Server side: EstateReviews.gs.
+   Client: "Estate readiness" (checklist, assets and who they go to, send to my attorney with signed consent) and a review card on Home when asked.
+   Firm: "Estate handoffs" (approve = Send, decline, turn a link off, attorney list) and "Reviews" (Google review link, ask, tracker). */
+(function () {
+  try {
+    function E() { var b = C(); return (b && b.estate) || null; }
+    var TYPES = ['Home or other real estate', 'Bank account', 'Retirement account', 'Life insurance', 'Investment account', 'Vehicle', 'Business', 'Other'];
+    var VALS = ['Under $10,000', '$10,000 to $50,000', '$50,000 to $250,000', '$250,000 to $1 million', 'Over $1 million', 'Not sure'];
+    var TITLES = ['In my name only', 'Joint with my spouse', 'Joint with someone else', 'In a trust', 'My business owns it', 'Not sure'];
+    var STCLS = { have: 'good', no: 'warn', unsure: 'gold', na: '' };
+    function opts(list, sel) { return '<option value="">Choose</option>' + list.map(function (x) { return '<option' + (x === sel ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join(''); }
+    function fd(v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1] : ''; }
+    function bar(pct) { return '<div class="er-bar" role="img" aria-label="' + pct + ' percent in place"><i style="width:' + Math.max(3, pct) + '%"></i></div>'; }
+
+    /* ---------------- client: Estate readiness ---------------- */
+    if (!CVIEWS.some(function (v) { return v[0] === 'estate'; })) {
+      var at = -1; CVIEWS.forEach(function (v, i) { if (v[0] === 'worth') at = i; });
+      CVIEWS.splice(at > -1 ? at + 1 : CVIEWS.length, 0, ['estate', 'Estate readiness']);
+    }
+    S.erTab = S.erTab || 'check'; S.erAssets = null;
+    CV.estate = function () {
+      var e = E();
+      if (!e) return '<h1>Estate readiness</h1><div class="card"><p class="muted">This section is not available right now. Please try again later.</p></div>';
+      if (!S.erAssets) S.erAssets = (e.plan.assets || []).map(function (x) { return JSON.parse(JSON.stringify(x)); });
+      var sc = e.score, pend = e.handoffs.filter(function (h) { return h.status === 'requested'; })[0];
+      var h = '<h1>Estate readiness</h1><div class="card er-note"><b>Get organized before you meet with an attorney.</b> Mark what you already have, list what you own and who it should go to, then send it to the attorney you choose. ' +
+        'We are a tax and bookkeeping firm, not a law firm: we do not write wills, trusts or powers of attorney and do not give legal advice. Only a licensed attorney can do that.</div>' +
+        '<div class="card"><div class="row" style="align-items:center"><div style="flex:1 1 220px"><div class="er-big">' + sc.have + ' of ' + (sc.applicable || ER_N) + '</div><div class="small muted">in place' + (sc.answered < ER_N ? ' · ' + (ER_N - sc.answered) + ' not answered yet' : '') + '</div></div>' +
+        '<div style="flex:2 1 260px">' + bar(sc.pct) + '</div></div>' + (e.plan.updatedAt ? '<p class="small muted" style="margin:8px 0 0">Last saved ' + esc(fd(e.plan.updatedAt)) + (e.plan.updatedBy ? ' by ' + esc(e.plan.updatedBy) : '') + '</p>' : '') + '</div>' +
+        '<div class="er-tabs">' + [['check', '1. What I have'], ['assets', '2. What I own'], ['send', '3. Send to my attorney' + (pend ? ' (waiting)' : '')]].map(function (t) {
+          return '<button class="' + (S.erTab === t[0] ? 'on' : '') + '" data-act="erTab" data-k="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>';
+      if (S.erTab === 'check') {
+        h += '<form data-form="erSave" data-part="check" class="card">' + e.items.map(function (it) {
+          var a = e.plan.answers[it[0]] || {}, s = a.s || '';
+          return '<div class="er-item"><div class="er-q"><b>' + esc(it[1]) + '</b>' + (s ? ' <span class="pill ' + (STCLS[s] || '') + '">' + esc(e.states[s]) + '</span>' : '') + '<div class="small muted">' + esc(it[2]) + '</div></div>' +
+            '<div class="row"><label style="flex:1 1 180px">Do you have this?<select name="s_' + it[0] + '" data-act-change="erShow" data-k="' + it[0] + '"><option value="">Choose</option>' +
+            Object.keys(e.states).map(function (k) { return '<option value="' + k + '"' + (s === k ? ' selected' : '') + '>' + esc(e.states[k]) + '</option>'; }).join('') + '</select></label>' +
+            '<div class="er-more" id="erm_' + it[0] + '" style="display:' + (s === 'have' ? 'contents' : 'none') + '"><label style="flex:0 1 120px">Year<input name="y_' + it[0] + '" inputmode="numeric" maxlength="4" value="' + esc(a.year || '') + '" placeholder="2019"></label>' +
+            '<label style="flex:1 1 200px">Where it is kept<input name="w_' + it[0] + '" maxlength="160" value="' + esc(a.where || '') + '" placeholder="Home safe, attorney\'s office"></label>' +
+            '<label style="flex:1 1 200px">Who is named<input name="o_' + it[0] + '" maxlength="120" value="' + esc(a.who || '') + '" placeholder="My sister, Jane"></label></div></div></div>';
+        }).join('') + '<div class="row"><button class="btn navy" type="submit">Save my checklist</button><button type="button" class="btn ghost" data-act="erTab" data-k="assets">Next: what I own</button></div></form>';
+      } else if (S.erTab === 'assets') {
+        h += '<form data-form="erSave" data-part="assets" class="card"><p class="small muted">List what you own and who should receive it. Use plain words, like "Chase checking" or "Our house on Elm St." ' +
+          '<b>Never type account, policy or Social Security numbers.</b> Long numbers are blocked automatically.</p><div id="erRows">' + S.erAssets.map(function (x, i) {
+            return '<div class="er-asset"><div class="row"><label style="flex:1 1 170px">Type<select name="t_' + i + '">' + opts(TYPES, x.type) + '</select></label><label style="flex:2 1 220px">Description<input name="d_' + i + '" maxlength="160" value="' + esc(x.desc || '') + '"></label>' +
+              '<label style="flex:1 1 170px">About how much<select name="v_' + i + '">' + opts(VALS, x.value) + '</select></label></div><div class="row"><label style="flex:1 1 200px">How it is owned<select name="h_' + i + '">' + opts(TITLES, x.title) + '</select></label>' +
+              '<label style="flex:2 1 260px">Beneficiary, or who should receive it<input name="b_' + i + '" maxlength="160" value="' + esc(x.bene || '') + '"></label><button type="button" class="btn sm ghost" data-act="erDelRow" data-i="' + i + '" aria-label="Remove this item" style="align-self:end">Remove</button></div></div>';
+          }).join('') + '</div><button type="button" class="btn ghost" data-act="erAddRow">+ Add something I own</button>' +
+          '<label style="margin-top:16px">Note for your attorney (optional)<textarea name="notes" rows="4" maxlength="3000" placeholder="Questions you want to ask, people you want to provide for, worries about the house...">' + esc(e.plan.notes || '') + '</textarea></label>' +
+          '<div class="row"><button class="btn navy" type="submit">Save what I own</button><button type="button" class="btn ghost" data-act="erTab" data-k="send">Next: send to my attorney</button></div></form>';
+      } else {
+        if (pend) h += '<div class="card" style="border-left:5px solid #C9A961"><b>Waiting for ' + esc(B.preparer || 'our office') + ' to send it</b><p class="small" style="margin:6px 0 10px">You asked us on ' + esc(fd(pend.consentAt)) + ' to send your packet to ' + esc(pend.attorney) + (pend.firm ? ' (' + esc(pend.firm) + ')' : '') + '. Nothing has been shared yet.</p>' +
+          '<button class="btn sm ghost" data-act="erWithdraw" data-id="' + esc(pend.id) + '">' + (S.erArm === pend.id ? 'Tap again to withdraw' : 'Withdraw this request') + '</button></div>';
+        else {
+          var hasAtt = e.attorneys.length;
+          h += '<form data-form="erRequest" class="card"><h2 style="margin-top:0">Send my readiness packet to my attorney</h2><p class="small muted">You choose the attorney. We send them a secure link that works for ' + e.days + ' days. Nothing goes out until you sign below and our office sends it.</p>' +
+            '<label>Attorney<select name="attId" data-act-change="erAtt">' + (hasAtt ? e.attorneys.map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name + (a.firm ? ' — ' + a.firm : '')) + '</option>'; }).join('') : '') + '<option value="own"' + (hasAtt ? '' : ' selected') + '>My own attorney</option></select></label>' +
+            '<div id="erOwn" style="display:' + (hasAtt ? 'none' : 'block') + '"><div class="row"><label style="flex:1 1 200px">Attorney\'s name<input name="name" maxlength="120"></label><label style="flex:1 1 200px">Law firm<input name="firm" maxlength="120"></label></div>' +
+            '<div class="row"><label style="flex:1 1 220px">Attorney\'s email<input name="email" type="email" maxlength="160"></label><label style="flex:1 1 160px">Phone<input name="phone" type="tel" maxlength="30"></label></div></div>' +
+            (hasAtt ? '<p class="small muted">The attorneys listed are names we can pass along. You are free to choose anyone.</p>' : '') +
+            '<fieldset class="er-fs"><legend>What to share</legend>' + Object.keys(e.share).map(function (k) { return '<label class="check"><input type="checkbox" name="sh_' + k + '" checked> ' + esc(e.share[k]) + '</label>'; }).join('') + '</fieldset>' +
+            '<details class="er-consent" open><summary>Consent to share (please read)</summary><div class="legal">' + esc(ER_CONSENT) + '</div></details>' +
+            '<label>Type your full name to sign<input name="signed" maxlength="120" autocomplete="name" required></label><label class="check"><input type="checkbox" name="agree"> I have read this consent and I agree. I understand I do not have to sign it.</label>' +
+            '<div class="row"><button class="btn navy" type="submit">Sign and send to the office</button></div></form>';
+        }
+        var past = e.handoffs.filter(function (x) { return x.status !== 'requested'; });
+        if (past.length) h += '<h2>History</h2>' + past.map(function (x) {
+          var lab = { sent: ['Sent', 'good'], declined: ['Not sent', 'warn'], withdrawn: ['Withdrawn', ''], 'link off': ['Link turned off', ''] }[x.status] || [x.status, ''];
+          return '<div class="card"><b>' + esc(x.attorney) + '</b>' + (x.firm ? ' <span class="small muted">' + esc(x.firm) + '</span>' : '') + ' <span class="pill ' + lab[1] + '">' + esc(lab[0]) + '</span><div class="small muted">Signed ' + esc(fd(x.consentAt)) +
+            (x.decidedAt ? ' · ' + esc(lab[0]) + ' ' + esc(fd(x.decidedAt)) : '') + (x.status === 'sent' && x.expires ? ' · link works until ' + esc(fd(x.expires)) : '') + '</div>' + (x.note ? '<p class="small" style="margin:6px 0 0">Note from our office: ' + esc(x.note) + '</p>' : '') + '</div>';
+        }).join('');
+      }
+      return h;
+    };
+    var ER_N = 13;
+    var ER_CONSENT = 'By signing, you authorize our office to send your estate-planning readiness packet to the attorney named above, one time, by a secure link that expires 30 days after it is sent (this consent ends then). ' +
+      'Only the items you checked are shared. Account numbers are never included. Purpose: so the attorney you chose can prepare for a consultation with you. You chose this attorney yourself. We are not a law firm, do not write wills, trusts or powers of attorney, and are not giving you legal advice. Any agreement and fees are between you and the attorney. You can withdraw this request here any time before it is sent.\n\n' +
+      'Federal law requires this consent form be provided to you. Unless authorized by law, we cannot disclose your tax return information to third parties for purposes other than the preparation and filing of your tax return without your consent. If you consent to the disclosure of your tax return information, Federal law may not protect your tax return information from further use or distribution. ' +
+      'You are not required to complete this form. If we obtain your signature on this form by conditioning our services on your consent, your consent will not be valid. If you agree to the disclosure of your tax return information, your consent is valid for the amount of time that you specify. If you do not specify the duration of your consent, your consent is valid for one year from the date of signature. ' +
+      'If you believe your tax return information has been disclosed or used improperly in a manner unauthorized by law or without your permission, you may contact the Treasury Inspector General for Tax Administration (TIGTA) by telephone at 1-800-366-4484, or by email at complaints@tigta.treas.gov.';
+    function erGrab() {
+      var f = document.querySelector('form[data-part="assets"]'); if (!f) return;
+      S.erAssets = S.erAssets.map(function (x, i) { function v(n) { var el = f.querySelector('[name="' + n + '_' + i + '"]'); return el ? el.value : ''; } return { type: v('t'), desc: v('d'), value: v('v'), title: v('h'), bene: v('b') }; });
+    }
+    function erPayload(part, d) {
+      var e = E(), answers = e.plan.answers, assets = S.erAssets || e.plan.assets, notes = e.plan.notes;
+      if (part === 'check') { answers = {}; e.items.forEach(function (it) { var k = it[0]; if (d['s_' + k]) answers[k] = { s: d['s_' + k], year: d['y_' + k] || '', where: d['w_' + k] || '', who: d['o_' + k] || '' }; }); }
+      if (part === 'assets') { erGrab(); assets = S.erAssets; notes = d.notes || ''; }
+      return { answers: answers, assets: assets, notes: notes };
+    }
+    function erSet(r, msg) { if (r) { C().estate = r; S.erAssets = null; } renderClient(); if (msg) toast(msg); }
+    FORM.erSave = function (f, d, btn) {
+      if (S.preview) { toast('Preview is read-only.'); return; }
+      run(btn, 'erSavePlan', erPayload(f.dataset.part, d)).then(function (r) { erSet(r, 'Saved. Only you and our office can see this.'); }, function () {});
+    };
+    FORM.erRequest = function (f, d, btn) {
+      if (S.preview) { toast('Preview is read-only.'); return; }
+      if (d.attId !== 'own') { d.name = ''; d.email = ''; }
+      if (!d.agree) { toast('Check the box to agree.'); return; }
+      run(btn, 'erRequest', d).then(function (r) { erSet(r, 'Signed. Our office will review and send it. You will see it here when it is sent.'); }, function () {});
+    };
+    ACT.erTab = function (el) { if (S.erTab === 'assets') erGrab(); S.erTab = el.dataset.k; renderClient(); };
+    ACT.erAddRow = function () { erGrab(); S.erAssets.push({ type: '', desc: '', value: '', title: '', bene: '' }); renderClient(); var r = document.querySelectorAll('.er-asset'); if (r.length) r[r.length - 1].scrollIntoView({ block: 'center' }); };
+    ACT.erDelRow = function (el) { erGrab(); S.erAssets.splice(Number(el.dataset.i), 1); renderClient(); };
+    ACT.erWithdraw = function (el) {
+      if (S.preview) { toast('Preview is read-only.'); return; }
+      if (S.erArm !== el.dataset.id) { S.erArm = el.dataset.id; el.textContent = 'Tap again to withdraw'; return; }
+      S.erArm = ''; run(el, 'erWithdraw', { id: el.dataset.id }).then(function (r) { erSet(r, 'Withdrawn. Nothing was shared.'); }, function () {});
+    };
+    document.addEventListener('change', function (ev) {
+      var t = ev.target; if (!t || !t.dataset) return;
+      if (t.dataset.actChange === 'erShow') { var m = document.getElementById('erm_' + t.dataset.k); if (m) m.style.display = t.value === 'have' ? 'contents' : 'none'; }
+      if (t.dataset.actChange === 'erAtt') { var o = document.getElementById('erOwn'); if (o) o.style.display = t.value === 'own' ? 'block' : 'none'; }
+    });
+
+    /* ---------------- client: review card on Home ---------------- */
+    var _homeER = CV.home;
+    CV.home = function () {
+      var h = _homeER.apply(this, arguments), e = E(), r = e && e.review;
+      if (!r || (r.status !== 'asked' && r.status !== 'opened')) return h;
+      return '<div class="card er-rv"><div class="cu-eb">A quick favor</div><b style="font-size:1.05rem">Would you share your experience?</b><p class="small" style="margin:6px 0 10px">We ask every client the same way. An honest Google review, whatever it says, helps other families decide.</p>' +
+        '<div class="row"><button class="btn navy sm" data-act="erRv" data-a="opened">Leave a Google review</button><button class="btn sm ghost" data-act="erRv" data-a="posted">I posted it</button><button class="btn sm ghost" data-act="erRv" data-a="later">Not now</button></div></div>' + h;
+    };
+    ACT.erRv = function (el) {
+      if (S.preview) { toast('Preview is read-only.'); return; }
+      var a = el.dataset.a, w = a === 'opened' ? window.open('', '_blank') : null;
+      run(el, 'erReview', { answer: a }).then(function (r) {
+        if (a === 'opened') { if (r && r.openLink) { if (w) w.location.href = r.openLink; else window.open(r.openLink, '_blank'); } else if (w) w.close(); }
+        erSet(r, a === 'posted' ? 'Thank you so much.' : a === 'later' ? 'No problem. We will not ask again here.' : '');
+      }, function () { if (w) w.close(); });
+    };
+
+    /* ---------------- firm: Estate handoffs + Reviews ---------------- */
+    [['estdesk', 'Estate handoffs'], ['reviews', 'Reviews']].forEach(function (v) {
+      if (AVIEWS.some(function (x) { return x[0] === v[0]; })) return;
+      var si = -1; AVIEWS.forEach(function (x, i) { if (x[0] === 'cupd' || x[0] === 'suggest' || (si === -1 && x[0] === 'queue')) si = i; });
+      AVIEWS.splice(si + 1, 0, v); AVIEW_PERM[v[0]] = 'OWNER';
+    });
+    if (typeof LONG_ACTIONS === 'object') { LONG_ACTIONS.erApprove = 150000; LONG_ACTIONS.erAsk = 240000; LONG_ACTIONS.erAdmin = 90000; }
+    S.er = null; S.erArmA = '';
+    function erLoad() { return run(null, 'erAdmin', {}, 'adminok').then(function (d) { S.er = d; erPaint(); }); }
+    function erPaint() { ['erwrap', 'rvwrap'].forEach(function (id) { var w = document.getElementById(id); if (w && S.er) w.innerHTML = id === 'erwrap' ? deskHtml(S.er) : revHtml(S.er); }); }
+    function erSetA(d) { S.er = d; S.erArmA = ''; erPaint(); if (d && d.note) toast(d.note); }
+    AV.estdesk = function () { return '<div id="erwrap">' + (S.er ? deskHtml(S.er) : '<p class="muted">Loading…</p>') + '</div>'; };
+    AV.reviews = function () { return '<div id="rvwrap">' + (S.er ? revHtml(S.er) : '<p class="muted">Loading…</p>') + '</div>'; };
+    AVA.estdesk = function () { erLoad().catch(function () {}); };
+    AVA.reviews = function () { erLoad().catch(function () {}); };
+    function deskHtml(d) {
+      var pend = d.handoffs.filter(function (h) { return h.status === 'requested'; }), sent = d.handoffs.filter(function (h) { return h.status === 'sent'; }), other = d.handoffs.filter(function (h) { return ['declined', 'withdrawn', 'link off'].indexOf(h.status) > -1; });
+      var h = '<h1>Estate handoffs</h1><p class="muted">Clients fill in their estate readiness checklist and choose an attorney. Nothing goes to an attorney until you tap <b>Send</b>. We organize and hand off only; we never draft or review wills, trusts or powers of attorney (Michigan treats that as the practice of law).</p>';
+      h += '<h2>Waiting for you (' + pend.length + ')</h2>' + (pend.length ? pend.map(function (x) {
+        return '<div class="card" style="border-left:5px solid #C9A961"><b>' + esc(x.client) + '</b>' + (x.person ? ' <span class="small muted">(' + esc(x.person) + ')</span>' : '') + '<div class="small">To <b>' + esc(x.attorney) + '</b>' + (x.firm ? ', ' + esc(x.firm) : '') + ' · ' + esc(x.email) + (x.phone ? ' · ' + esc(x.phone) : '') + '</div>' +
+          '<div class="small muted">Shares: ' + x.share.map(function (k) { return esc(d.share[k] || k); }).join('; ') + '<br>Signed "' + esc(x.signed) + '" on ' + esc(fd(x.consentAt)) + '</div>' +
+          '<details style="margin:6px 0"><summary class="small">Signed consent</summary><div class="legal">' + esc(x.consent) + '</div></details>' +
+          '<div class="row"><button class="btn ghost sm" data-act="erPrev" data-id="' + esc(x.id) + '">Preview packet</button><button class="btn navy sm" data-act="erSend" data-id="' + esc(x.id) + '">' + (S.erArmA === x.id ? 'Tap again to send' : 'Send to attorney') + '</button>' +
+          '<button class="btn ghost sm" data-act="erNoOpen" data-id="' + esc(x.id) + '">Do not send</button></div><form data-form="erDecline" data-id="' + esc(x.id) + '" id="erno_' + esc(x.id) + '" style="display:none;margin-top:8px"><label>Note the client will see<textarea name="note" rows="2" placeholder="Example: The email bounced. Please check the address and send again."></textarea></label><button class="btn sm" type="submit">Mark not sent</button></form></div>';
+      }).join('') : '<div class="card"><p class="muted">No requests waiting.</p></div>');
+      if (sent.length) h += '<h2>Sent</h2>' + sent.map(function (x) {
+        var exp = x.expires && new Date(x.expires).getTime() < Date.now();
+        return '<div class="card"><b>' + esc(x.client) + '</b> → ' + esc(x.attorney) + (x.firm ? ', ' + esc(x.firm) : '') + ' <span class="pill ' + (exp ? '' : 'good') + '">' + (exp ? 'Link expired' : 'Link works until ' + esc(fd(x.expires))) + '</span>' +
+          '<div class="small muted">Sent ' + esc(fd(x.decidedAt)) + ' · opened ' + x.opens + ' time' + (x.opens === 1 ? '' : 's') + (x.lastOpenAt ? ' (last ' + esc(fd(x.lastOpenAt)) + ')' : '') + '</div>' +
+          '<div class="row" style="margin-top:6px">' + (x.driveFileId ? '<a class="btn sm ghost" href="https://drive.google.com/open?id=' + esc(x.driveFileId) + '" target="_blank" rel="noopener">PDF copy</a>' : '') + (exp ? '' : '<button class="btn sm ghost" data-act="erRevoke" data-id="' + esc(x.id) + '">' + (S.erArmA === 'r' + x.id ? 'Tap again to turn off' : 'Turn link off') + '</button>') + '</div></div>';
+      }).join('');
+      if (other.length) h += '<details><summary>Withdrawn, not sent or turned off (' + other.length + ')</summary>' + other.map(function (x) { return '<div class="small" style="margin:4px 0">' + esc(x.client) + ' → ' + esc(x.attorney) + ': ' + esc(x.status) + ' ' + esc(fd(x.decidedAt)) + (x.declineNote ? ' — ' + esc(x.declineNote) : '') + '</div>'; }).join('') + '</details>';
+      h += '<h2>Attorneys you can pass along</h2><form data-form="erAttys" class="card"><p class="small muted">Clients see these names to pick from and can always enter their own attorney. One per line: <code>Name | Law firm | email | phone</code>. Only list attorneys who agreed to receive handoffs.</p>' +
+        '<textarea name="attorneys" rows="4" placeholder="Jane Doe | Doe Estate Law PLLC | jane@doeestatelaw.com | 248-555-0100">' + esc(d.attorneysRaw) + '</textarea><button class="btn navy sm" type="submit">Save list</button></form>';
+      var withPlan = d.clients.filter(function (c) { return c.estate; });
+      h += '<h2>Client readiness</h2>' + (withPlan.length ? '<div class="card"><table class="tbl"><tr><th>Client</th><th>In place</th><th>Answered</th></tr>' + withPlan.map(function (c) { return '<tr><td>' + esc(c.name) + '</td><td>' + c.estate.have + ' of ' + c.estate.applicable + ' (' + c.estate.pct + '%)</td><td>' + c.estate.answered + ' of ' + ER_N + '</td></tr>'; }).join('') + '</table></div>' :
+        '<div class="card"><p class="muted">No client has started the checklist yet. It is under "Estate readiness" in every client portal.</p></div>');
+      return h;
+    }
+    function revPreview(d) {
+      var t = esc(String(d.reviewText || '')).replace(/\n/g, '<br>').replace('[[ER_BTN]]', '<span style="background:#1B2951;color:#FAF7F0;padding:9px 16px;border-radius:999px;font-weight:bold;display:inline-block">Leave a Google review</span>');
+      return '<div class="card" style="background:#FFFDF8"><div class="small muted" style="margin-bottom:6px">Every client gets exactly this email (their first name in place of "Client"):</div>' + t + '</div>';
+    }
+    function revHtml(d) {
+      var st = { asked: ['Asked', 'gold'], opened: ['Opened the link', ''], posted: ['Posted', 'good'], 'not now': ['Not now', 'warn'] };
+      var todo = d.clients.filter(function (c) { return !c.review && c.hasEmail; });
+      var asked = d.clients.filter(function (c) { return c.review; }), posted = asked.filter(function (c) { return c.review.status === 'posted'; }).length, opened = asked.filter(function (c) { return c.review.clickedAt; }).length;
+      var h = '<h1>Review requests</h1><div class="card er-note"><b>Ask every client the same way.</b> Google\'s rules do not allow asking only happy clients, and the FTC rule on fake reviews (16 CFR Part 465) bars buying, rewarding or faking reviews. This page sends one honest message to everyone and never offers anything for a review.</div>' +
+        '<form data-form="erRvLink" class="card"><label>Your Google review link (Google Business Profile > Ask for reviews > copy link)<input name="reviewLink" value="' + esc(d.reviewLink) + '" placeholder="https://g.page/r/..."></label><button class="btn navy sm" type="submit">Save link</button></form>';
+      if (!d.reviewLink) return h + '<div class="card"><p class="muted">Paste your review link above to start asking.</p></div>';
+      h += '<div class="grid g3"><div class="card"><div class="er-big">' + asked.length + '</div><div class="small muted">asked</div></div><div class="card"><div class="er-big">' + opened + '</div><div class="small muted">opened the link</div></div><div class="card"><div class="er-big">' + posted + '</div><div class="small muted">posted</div></div></div>' + revPreview(d) +
+        (todo.length ? '<div class="row"><button class="btn navy" data-act="erAskAll">' + (S.erArmA === 'all' ? 'Tap again to email ' + todo.length + ' client' + (todo.length > 1 ? 's' : '') : 'Ask everyone not yet asked (' + todo.length + ')') + '</button></div>' : '') +
+        '<div class="card"><table class="tbl"><tr><th>Client</th><th>Status</th><th></th></tr>' + d.clients.map(function (c) {
+          var r = c.review, s = r ? st[r.status] || [r.status, ''] : null;
+          return '<tr><td>' + esc(c.name) + '</td><td>' + (s ? '<span class="pill ' + s[1] + '">' + esc(s[0]) + '</span> <span class="small muted">asked ' + esc(fd(r.askedAt)) + '</span>' : (c.hasEmail ? '<span class="small muted">Not asked</span>' : '<span class="small muted">No email on file</span>')) + '</td><td>' +
+            (!r && c.hasEmail ? '<button class="btn sm ghost" data-act="erAsk1" data-id="' + esc(c.id) + '">' + (S.erArmA === 'a' + c.id ? 'Tap again to send' : 'Ask') + '</button>' : '') +
+            (r && r.status !== 'posted' ? '<button class="btn sm ghost" data-act="erMark" data-id="' + esc(c.id) + '">Mark posted</button>' : '') + '</td></tr>';
+        }).join('') + '</table></div>';
+      return h;
+    }
+    function arm(el, key, label) { if (S.erArmA !== key) { S.erArmA = key; el.textContent = label; return false; } S.erArmA = ''; return true; }
+    ACT.erPrev = function (el) { run(el, 'erPreview', { id: el.dataset.id }, 'adminok').then(function (r) { modal('<div class="small muted" style="margin-bottom:6px">PREVIEW — what the attorney sees behind the secure link</div><iframe style="width:100%;height:70vh;border:1px solid #E2DCCD;border-radius:8px" sandbox srcdoc="' + esc(r.html) + '"></iframe>', true); }, function () {}); };
+    ACT.erSend = function (el) { if (!arm(el, el.dataset.id, 'Tap again to send')) return; run(el, 'erApprove', { id: el.dataset.id }, 'adminok').then(erSetA, function () {}); };
+    ACT.erNoOpen = function (el) { var f = document.getElementById('erno_' + el.dataset.id); if (f) { f.style.display = 'block'; var t = f.querySelector('textarea'); if (t) t.focus(); } };
+    ACT.erRevoke = function (el) { if (!arm(el, 'r' + el.dataset.id, 'Tap again to turn off')) return; run(el, 'erRevoke', { id: el.dataset.id }, 'adminok').then(erSetA, function () {}); };
+    ACT.erAsk1 = function (el) { if (!arm(el, 'a' + el.dataset.id, 'Tap again to send')) return; run(el, 'erAsk', { ids: [el.dataset.id] }, 'adminok').then(erSetA, function () {}); };
+    ACT.erAskAll = function (el) {
+      var ids = S.er.clients.filter(function (c) { return !c.review && c.hasEmail; }).map(function (c) { return c.id; });
+      if (!arm(el, 'all', 'Tap again to email ' + ids.length + ' client' + (ids.length > 1 ? 's' : ''))) return;
+      run(el, 'erAsk', { ids: ids }, 'adminok').then(erSetA, function () {});
+    };
+    ACT.erMark = function (el) { run(el, 'erMark', { id: el.dataset.id }, 'adminok').then(erSetA, function () {}); };
+    FORM.erDecline = function (f, d, btn) { run(btn, 'erDecline', { id: f.dataset.id, note: d.note }, 'adminok').then(erSetA, function () {}); };
+    FORM.erAttys = function (f, d, btn) { run(btn, 'erSettings', { attorneys: d.attorneys }, 'adminok').then(erSetA, function () {}); };
+    FORM.erRvLink = function (f, d, btn) { run(btn, 'erSettings', { reviewLink: d.reviewLink }, 'adminok').then(erSetA, function () {}); };
+  } catch (e) { try { console.log('v3.9 estate/reviews UI failed: ' + e.message); } catch (x) {} }
+})();
+</script>
+<style>
+.er-note{background:#FBF6EA;border-left:5px solid #C9A961}
+.er-big{font:700 1.7rem/1.1 Georgia,serif;color:#1B2951}
+.er-bar{height:12px;background:#ECE5D5;border-radius:999px;overflow:hidden}.er-bar i{display:block;height:100%;background:linear-gradient(90deg,#B8954A,#C9A961);border-radius:999px}
+.er-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0}.er-tabs button{border:1px solid #D9CFB8;background:#fff;border-radius:999px;padding:8px 14px;font:600 .92rem Inter,Arial,sans-serif;color:#1B2951;cursor:pointer}.er-tabs button.on{background:#1B2951;color:#FAF7F0;border-color:#1B2951}
+.er-item{border-bottom:1px solid #ECE5D5;padding:12px 0}.er-item:last-of-type{border-bottom:0}.er-q b{font-size:1rem}
+.er-asset{border:1px solid #ECE5D5;border-radius:12px;padding:10px 12px;margin:0 0 10px;background:#FFFDF8}
+.er-fs{border:1px solid #ECE5D5;border-radius:12px;padding:8px 12px;margin:12px 0}.er-fs legend{font-weight:700;padding:0 6px}
+.er-consent .legal{max-height:240px;overflow:auto;white-space:pre-wrap;font-size:.85rem}
+.er-rv{border-left:5px solid #1B2951}
+table.tbl{width:100%;border-collapse:collapse}table.tbl th,table.tbl td{text-align:left;padding:7px 6px;border-bottom:1px solid #ECE5D5;font-size:.92rem}
+</style>

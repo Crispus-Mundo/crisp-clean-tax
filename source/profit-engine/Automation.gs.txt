@@ -1,0 +1,256 @@
+/**
+ * Crispus Profit Engine — v1.7 add-on (Nov 7, 2026): AUTOMATION REGISTER.
+ * "We are the automators": one row per process, per business line, showing what each line has
+ * automated, what it is worth, and what is next. Target: $100,000 a year of automated work per line.
+ *
+ * Page (PIN): <exec>?t=…&view=auto   (button "Automation" on every signed-in page)
+ * Data: "Automations" tab in the Profit Engine data sheet.
+ *
+ * How the number stays real — three buckets:
+ *   hours  = minutes per run ÷ 60 × runs per month × hourly cost (all three must be filled in)
+ *   caught = revenue the automation catches (missed calls answered, leads followed up, claims paid faster)
+ *   sold   = the same agents sold to clients (tier plan, AI Workflow Consultant offer)
+ * "Estimated" uses those numbers; "Verified" is only what you enter after 30+ days live.
+ *
+ * Your sign-off rule is enforced: if sign-off is required (figures, tax positions, legal, money,
+ * client information), the automation level can't be "Full" — it is saved as "Drafts for your approval".
+ *
+ * Additive only: wraps act_, doGet, page_ and dailyCheck; nothing existing is removed.
+ * Setup (once, from the editor): run setupAutomation().
+ */
+
+TABS.Automations = ['id', 'business', 'process', 'source', 'who_now', 'minutes_per_run', 'runs_per_month', 'hourly_cost',
+  'bucket', 'monthly_value', 'level', 'agent_app', 'signoff', 'status', 'live_since', 'verified_monthly', 'next_step', 'notes', 'updated'];
+var AUTO_TARGET = 100000;
+var AUTO_LINES = ['TAX', 'CARES', 'HVAC', 'MERCH', 'CMCC'];
+var AUTO_LEVELS = ['Human only', 'Drafts for your approval', 'Full'];
+var AUTO_STATUSES = ['Idea', 'Building', 'Live', 'Verified', 'Retired'];
+var AUTO_BUCKETS = [['hours', 'Hours saved'], ['caught', 'Revenue caught'], ['sold', 'Revenue sold']];
+var AUTO_SOURCES = ['Written process', 'Transcript', 'Talk-through', 'Screen recording (test data only)', 'App already built'];
+
+// Status set from your app records on Nov 7, 2026 — minutes, runs and costs are left blank (MISSING) until you fill them from your records.
+var AUTO_SEED = [
+  // business, process, source, who now, bucket, level, agent/app, sign-off, status, next step
+  ['TAX', 'Sort client tax documents', 'App already built', 'You / scholars', 'hours', 'Drafts for your approval', 'CMCC Bookkeeping Document Processor', 'Yes', 'Live', 'Fill minutes per client and runs per month'],
+  ['TAX', 'Return review before e-file', 'App already built', 'You', 'hours', 'Drafts for your approval', 'Crispus Mundo review (Tax Platform ?view=review)', 'Yes', 'Live', 'Fill minutes per return'],
+  ['TAX', 'Engagement letter and §7216 consent', 'App already built', 'You', 'hours', 'Drafts for your approval', 'Get Started funnel + Crisp Clean Client Portal', 'Yes', 'Live', 'Fill minutes per new client'],
+  ['TAX', 'Review requests after filing', 'App already built', 'You', 'caught', 'Drafts for your approval', 'Crisp Clean Client Portal (Reviews, v3.9)', 'Yes', 'Live', 'Enter the value of one new client from a review'],
+  ['TAX', 'Missed-call text back', 'Written process', 'You', 'caught', 'Drafts for your approval', 'Crispus AI Ops Agent', 'Yes', 'Idea', 'Decide the text-back wording'],
+  ['CARES', 'Shift fill from caregiver texts', 'App already built', 'You', 'hours', 'Drafts for your approval', 'CCES Shift Desk + Shift Desk Text Link', 'Yes', 'Building', 'Live text test, then fill minutes per open shift'],
+  ['CARES', 'Visit checks against the care plan', 'Written process', 'You', 'hours', 'Drafts for your approval', 'CCES Care Portal', 'Yes', 'Idea', 'Waits for the Workspace BAA (no real PHI before)'],
+  ['CARES', 'MSA-1904 invoice grid', 'Written process', 'You', 'hours', 'Drafts for your approval', 'CareLedger', 'Yes', 'Idea', 'Fill minutes per invoice'],
+  ['CARES', 'Caregiver credential expirations', 'Written process', 'You', 'hours', 'Drafts for your approval', 'CCES Care Portal', 'No', 'Idea', 'List the credentials to track'],
+  ['CARES', 'Insurance eligibility checks', 'Written process', 'You', 'caught', 'Drafts for your approval', 'Clearinghouse (270/271)', 'Yes', 'Idea', 'Needs NPI, clearinghouse account, payer enrollment and BAA first'],
+  ['HVAC', 'Lead screening and estimate booking', 'App already built', 'You', 'caught', 'Drafts for your approval', 'HVAC Lead Desk', 'No', 'Live', 'Enter the value of one booked estimate'],
+  ['HVAC', 'Overflow routing to partner contractors', 'App already built', 'You', 'caught', 'Drafts for your approval', 'HVAC Lead Desk (Dispatch)', 'Yes', 'Live', 'Enter referral value per job'],
+  ['HVAC', 'Quote drafts', 'App already built', 'You', 'hours', 'Drafts for your approval', 'HVAC Lead Desk (Quotes)', 'Yes', 'Live', 'Fill minutes per quote'],
+  ['HVAC', 'Maintenance reminders', 'App already built', 'You', 'caught', 'Drafts for your approval', 'HVAC Lead Desk (Outreach)', 'No', 'Live', 'Enter value of one tune-up'],
+  ['MERCH', 'Merch plan intake', 'App already built', 'You', 'hours', 'Drafts for your approval', 'Profit Engine front page (?front=MERCH)', 'No', 'Live', 'Fill minutes per intake'],
+  ['MERCH', 'Store visit reports', 'Written process', 'You', 'hours', 'Drafts for your approval', '', 'No', 'Idea', 'Pick the report layout'],
+  ['CMCC', 'Scholar payroll reconciliation', 'App already built', 'You', 'hours', 'Drafts for your approval', 'MUNDO INTERN APP (Pay)', 'Yes', 'Live', 'You approve every pay run; fill minutes per pay period'],
+  ['CMCC', 'Scholar onboarding (accounts, forms, AI-use policy)', 'Written process', 'You', 'hours', 'Drafts for your approval', 'MUNDO INTERN APP + Scholar Onboarding Kit', 'No', 'Building', 'Fill minutes per new scholar'],
+  ['CMCC', 'Timesheet review (shifts vs standups)', 'App already built', 'You', 'hours', 'Drafts for your approval', 'MUNDO INTERN APP (Pay)', 'Yes', 'Live', 'Fill minutes per pay period'],
+  ['TAX', 'Sell these agents to clients (tier plan / AI Workflow Consultant)', 'Written process', 'You', 'sold', 'Human only', 'Crisp Clean tier plan', 'Yes', 'Idea', 'Set the monthly price per client']
+];
+
+/** Run once from the editor (safe to re-run): creates the Automations tab and seeds the first processes per line. */
+function setupAutomation() {
+  var ss = ss_(), sh = ss.getSheetByName('Automations');
+  if (!sh) { sh = ss.insertSheet('Automations'); }
+  if (sh.getLastRow() === 0) { sh.appendRow(TABS.Automations); sh.setFrozenRows(1); sh.getRange(1, 1, 1, TABS.Automations.length).setFontWeight('bold'); }
+  var have = rows_('Automations').map(function (r) { return r.business + '|' + r.process; }), n = 0;
+  AUTO_SEED.forEach(function (s) {
+    if (have.indexOf(s[0] + '|' + s[1]) >= 0) return;
+    append_('Automations', { id: 'AU-' + id_(), business: s[0], process: s[1], source: s[2], who_now: s[3], bucket: s[4], level: s[5],
+      agent_app: s[6], signoff: s[7], status: s[8], live_since: s[8] === 'Live' ? today_() : '', next_step: s[9],
+      notes: 'Status set from app records Nov 7, 2026 — confirm.', updated: today_() });
+    n++;
+  });
+  Logger.log('Automations seeded: ' + n + ' | page: ' + execUrl_() + '?view=auto (sign in first)');
+  Logger.log('Render check: ' + autoPage_(token_(), '').getContent().length + ' chars');
+  return n;
+}
+
+// ------------------------------------------------------------------ math
+function autoMonthly_(r) {
+  if (r.bucket === 'hours') {
+    var m = num_(r.minutes_per_run), n = num_(r.runs_per_month), c = num_(r.hourly_cost);
+    return m && n && c ? Math.round(m / 60 * n * c * 100) / 100 : null;
+  }
+  return r.monthly_value === '' || r.monthly_value === null ? null : num_(r.monthly_value);
+}
+function autoMissing_(r) {
+  if (r.bucket === 'hours') return ['minutes_per_run', 'runs_per_month', 'hourly_cost'].filter(function (k) { return !num_(r[k]); })
+    .map(function (k) { return { minutes_per_run: 'minutes per run', runs_per_month: 'runs per month', hourly_cost: 'hourly cost' }[k]; });
+  return r.monthly_value === '' ? ['monthly value'] : [];
+}
+function autoSummary_(rows) {
+  var out = {};
+  AUTO_LINES.forEach(function (k) { out[k] = { est: 0, ver: 0, live: 0, idea: 0, building: 0, missing: 0, buckets: { hours: 0, caught: 0, sold: 0 } }; });
+  rows.forEach(function (r) {
+    var s = out[r.business]; if (!s || r.status === 'Retired') return;
+    var mv = autoMonthly_(r);
+    if (r.status === 'Live' || r.status === 'Verified') { s.live++; if (mv !== null) { s.est += mv * 12; s.buckets[r.bucket] = (s.buckets[r.bucket] || 0) + mv * 12; } }
+    if (r.status === 'Idea') s.idea++;
+    if (r.status === 'Building') s.building++;
+    if (num_(r.verified_monthly)) s.ver += num_(r.verified_monthly) * 12;
+    if (mv === null) s.missing++;
+  });
+  return out;
+}
+function autoDays_(d) { if (!d) return 0; var t = new Date(String(d).slice(0, 10) + 'T12:00:00'); return Math.floor((new Date() - t) / 86400000); }
+
+// ------------------------------------------------------------------ actions
+function autoAct_(p) {
+  var a = p.a;
+  if (a === 'autosave') {
+    var level = p.level, msg = '';
+    if (p.signoff === 'Yes' && level === 'Full') { level = 'Drafts for your approval'; msg = ' Sign-off is required, so it was saved as "Drafts for your approval".'; }
+    if (AUTO_LINES.indexOf(p.business) < 0) throw new Error('Pick a business line');
+    if (!p.process) throw new Error('Name the process');
+    var vals = { business: p.business, process: p.process, source: p.source || '', who_now: p.who_now || '', minutes_per_run: p.minutes_per_run || '',
+      runs_per_month: p.runs_per_month || '', hourly_cost: p.hourly_cost || '', bucket: p.bucket || 'hours', monthly_value: p.monthly_value || '',
+      level: level || 'Drafts for your approval', agent_app: p.agent_app || '', signoff: p.signoff || 'Yes', status: p.status || 'Idea',
+      verified_monthly: p.verified_monthly || '', next_step: p.next_step || '', notes: p.notes || '', updated: today_() };
+    var r = p.id ? rows_('Automations').filter(function (x) { return x.id === p.id; })[0] : null;
+    if (p.verified_monthly && (!r || autoDays_(r.live_since) < 30) && vals.status !== 'Verified') msg += ' Verified savings count once the process has been live 30 days.';
+    if (r) {
+      if ((vals.status === 'Live' || vals.status === 'Verified') && !r.live_since) vals.live_since = today_();
+      if (vals.status === 'Verified' && !num_(vals.verified_monthly)) { vals.status = 'Live'; msg += ' Enter the measured monthly savings to mark it Verified.'; }
+      update_('Automations', r._row, vals);
+      return 'Saved ' + p.process + '.' + msg;
+    }
+    vals.id = 'AU-' + id_(); vals.live_since = (vals.status === 'Live' || vals.status === 'Verified') ? today_() : '';
+    if (vals.status === 'Verified' && !num_(vals.verified_monthly)) vals.status = 'Live';
+    append_('Automations', vals);
+    return 'Added ' + p.process + '.' + msg;
+  }
+  return '';
+}
+var _autoOrigAct = act_;
+act_ = function (p) { if (p && p.a && String(p.a).indexOf('auto') === 0) return autoAct_(p); return _autoOrigAct(p); };
+
+// ------------------------------------------------------------------ page
+function autoOpts_(list, sel) {
+  return list.map(function (x) { var v = x instanceof Array ? x[0] : x, l = x instanceof Array ? x[1] : x;
+    return '<option value="' + esc_(v) + '"' + (String(v) === String(sel) ? ' selected' : '') + '>' + esc_(l) + '</option>'; }).join('');
+}
+function autoForm_(t, r, line) {
+  r = r || { business: line || 'TAX', bucket: 'hours', level: 'Drafts for your approval', signoff: 'Yes', status: 'Idea' };
+  var inp = function (k, label, ph) { return '<label>' + label + '<input name="' + k + '" value="' + esc_(r[k]) + '"' + (ph ? ' placeholder="' + esc_(ph) + '"' : '') + '></label>'; };
+  return form_({ t: t, view: 'auto', a: 'autosave', id: r.id || '', line: line || '' },
+    '<label>Business line<select name="business">' + autoOpts_(AUTO_LINES, r.business) + '</select></label>' +
+    inp('process', 'Process', 'e.g. sort client tax documents') +
+    '<label>Where the steps come from<select name="source">' + autoOpts_(AUTO_SOURCES, r.source) + '</select></label>' +
+    inp('who_now', 'Who does it now', 'You, staff, scholar') +
+    '<label>What it is worth<select name="bucket">' + autoOpts_(AUTO_BUCKETS, r.bucket) + '</select></label>' +
+    '<div class="grid">' + inp('minutes_per_run', 'Minutes per run (hours bucket)') + inp('runs_per_month', 'Runs per month') + inp('hourly_cost', 'Hourly cost ($)') + '</div>' +
+    inp('monthly_value', 'Monthly value ($) — for revenue caught / sold') +
+    '<label>Automation level<select name="level">' + autoOpts_(AUTO_LEVELS, r.level) + '</select></label>' +
+    inp('agent_app', 'Agent / app it runs in') +
+    '<label>Your sign-off required? <span class="muted">Yes for figures, tax positions, legal, money, client information</span><select name="signoff">' + autoOpts_(['Yes', 'No'], r.signoff) + '</select></label>' +
+    '<label>Status<select name="status">' + autoOpts_(AUTO_STATUSES, r.status) + '</select></label>' +
+    inp('verified_monthly', 'Verified monthly savings ($) — measured after 30 days live') +
+    inp('next_step', 'Next step') + inp('notes', 'Notes') +
+    '<button>' + (r.id ? 'Save' : 'Add process') + '</button>');
+}
+function autoPage_(t, msg, line) {
+  var rows = rows_('Automations'), sum = autoSummary_(rows);
+  var tot = { est: 0, ver: 0 }; AUTO_LINES.forEach(function (k) { tot.est += sum[k].est; tot.ver += sum[k].ver; });
+  var cards = AUTO_LINES.map(function (k) {
+    var s = sum[k], pct = Math.min(100, Math.round(100 * s.est / AUTO_TARGET)), vpct = Math.min(100, Math.round(100 * s.ver / AUTO_TARGET));
+    return '<div class="card"><b>' + k + '</b> <span class="muted">target ' + money_(AUTO_TARGET) + '/yr</span>' +
+      '<div class="k">' + money_(s.est) + ' <span class="muted">/yr estimated</span></div>' +
+      '<div style="background:#eee;border-radius:5px;height:10px;margin:4px 0"><div class="bar" style="width:' + Math.max(1, pct) + '%"></div></div>' +
+      '<div class="muted">Verified ' + money_(s.ver) + '/yr (' + vpct + '%) · hours ' + money_(s.buckets.hours) + ' · caught ' + money_(s.buckets.caught) + ' · sold ' + money_(s.buckets.sold) + '</div>' +
+      '<div class="muted">' + s.live + ' live · ' + s.building + ' building · ' + s.idea + ' ideas' + (s.missing ? ' · <span class="bad">' + s.missing + ' missing numbers</span>' : '') + '</div>' +
+      '<a class="btn light" href="' + link_({ t: t, view: 'auto', line: k }) + '#list">Show ' + k + '</a></div>';
+  }).join('');
+  var show = rows.filter(function (r) { return !line || r.business === line; });
+  var order = { Live: 0, Verified: 1, Building: 2, Idea: 3, Retired: 4 };
+  show.sort(function (a, b) { return (a.business > b.business ? 1 : a.business < b.business ? -1 : 0) || ((order[a.status] || 9) - (order[b.status] || 9)); });
+  var list = show.map(function (r) {
+    var mv = autoMonthly_(r), miss = autoMissing_(r), days = autoDays_(r.live_since);
+    var verifyDue = r.status === 'Live' && days >= 30 && !num_(r.verified_monthly);
+    return '<tr><td><span class="pill">' + esc_(r.business) + '</span> <b>' + esc_(r.process) + '</b><div class="muted">' + esc_(r.agent_app || 'no app yet') + ' · ' + esc_(r.level) +
+      (r.signoff === 'Yes' ? ' · your sign-off' : '') + '</div>' + (r.next_step ? '<div class="muted">Next: ' + esc_(r.next_step) + '</div>' : '') +
+      (miss.length ? '<div class="bad">Missing: ' + esc_(miss.join(', ')) + '</div>' : '') + (verifyDue ? '<div class="bad">Live ' + days + ' days — enter verified savings</div>' : '') +
+      '<details><summary>Edit</summary>' + autoForm_(t, r, line) + '</details></td><td>' + esc_(r.status) + '</td><td>' +
+      (mv === null ? '—' : money_(mv * 12) + '<div class="muted">/yr est.</div>') + (num_(r.verified_monthly) ? '<div class="ok">' + money_(num_(r.verified_monthly) * 12) + ' verified</div>' : '') + '</td></tr>';
+  }).join('') || '<tr><td class="muted">No processes yet. Run setupAutomation() once from the editor, or add one below.</td></tr>';
+  var body = (msg ? '<div class="card ok">' + esc_(msg) + '</div>' : '') +
+    '<div class="card"><b>All lines</b><div class="k">' + money_(tot.est) + ' <span class="muted">/yr estimated of ' + money_(AUTO_TARGET * AUTO_LINES.length) + '</span></div>' +
+    '<div class="muted">Verified ' + money_(tot.ver) + '/yr. Estimated counts Live and Verified processes whose numbers are filled in. Hours saved = minutes ÷ 60 × runs × hourly cost. ' +
+    'Revenue caught and revenue sold are monthly amounts you enter. Nothing counts as verified until it has been live 30 days and you enter what it actually saved.</div></div>' +
+    '<div class="grid">' + cards + '</div>' +
+    '<div class="card" id="list"><b>' + (line ? line + ' processes' : 'Every process') + '</b>' + (line ? ' <a class="btn light" href="' + link_({ t: t, view: 'auto' }) + '#list">Show all</a>' : '') +
+    '<table><tr><th>Process</th><th>Status</th><th>Worth</th></tr>' + list + '</table></div>' +
+    '<div class="card"><details><summary><b>Add a process</b></summary>' + autoForm_(t, null, line) + '</details></div>' +
+    '<p class="muted">Screen recordings are optional. Record with test data only — a recording can capture client names, SSNs or bank screens.</p>';
+  return page_('Automation Register', body, t);
+}
+
+// ------------------------------------------------------------------ hooks (additive)
+var _autoOrigDoGet = doGet;
+doGet = function (e) {
+  var p = (e && e.parameter) || {};
+  if (p.view === 'auto' && !p.front && !p.card && !p.vcf && !p.pin && tokenOk_(p.t)) {
+    var msg = '';
+    try { msg = act_(p); } catch (err) { msg = 'Could not do that: ' + err.message; }
+    return autoPage_(p.t, msg, p.line && AUTO_LINES.indexOf(p.line) >= 0 ? p.line : '');
+  }
+  return _autoOrigDoGet(e);
+};
+var _autoOrigPage = page_;
+page_ = function (title, body, t) {
+  if (t && title === 'Make My Business Profitable') {
+    try {
+      var sum = autoSummary_(rows_('Automations')), est = 0, ver = 0;
+      AUTO_LINES.forEach(function (k) { est += sum[k].est; ver += sum[k].ver; });
+      body = '<div class="card"><b>Automation Register</b> <span class="muted">target ' + money_(AUTO_TARGET) + ' a year per line</span><div class="k"><a href="' +
+        link_({ t: t, view: 'auto' }) + '">' + money_(est) + '/yr automated</a></div><div class="muted">' + money_(ver) + '/yr verified · ' +
+        AUTO_LINES.map(function (k) { return k + ' ' + money_(sum[k].est); }).join(' · ') + '</div></div>' + body;
+    } catch (e) {}
+  }
+  var out = _autoOrigPage(title, body, t);
+  if (!t) return out;
+  var c = out.getContent();
+  var btn = '<a class="btn light" href="' + link_({ t: t, view: 'auto' }) + '" target="_top">Automation</a>';
+  if (c.indexOf('view=auto') < 0 || c.indexOf('>Automation</a>') < 0) c = c.replace('>Listings &amp; cards</a>', '>Listings &amp; cards</a>' + btn);
+  return HtmlService.createHtmlOutput(c).setTitle(APP.NAME).addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+};
+var _autoOrigDaily = dailyCheck;
+dailyCheck = function (quiet) {
+  var r = _autoOrigDaily(quiet);
+  try {
+    rows_('Automations').forEach(function (a) {
+      if (a.status === 'Live' && autoDays_(a.live_since) === 30 && !num_(a.verified_monthly))
+        append_('Alerts', { time: new Date(), business: a.business, level: 'attention', message: 'Automation live 30 days — enter verified savings: ' + a.process });
+    });
+  } catch (e) {}
+  return r;
+};
+
+/** Run once after setupAutomation(): adds the register to CAIOCC notes and the agent roster. */
+function registerAutomation() {
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  var reg = SpreadsheetApp.openById(CAIOCC_REGISTRY_ID), out = [];
+  var app = reg.getSheetByName('Applications'), head = app.getRange(1, 1, 1, app.getLastColumn()).getValues()[0];
+  var v = app.getRange(2, 1, app.getLastRow() - 1, head.length).getValues();
+  for (var i = 0; i < v.length; i++) if (String(v[i][head.indexOf('Name')]) === 'Crispus Profit Engine') {
+    var old = String(v[i][head.indexOf('Notes')] || '');
+    if (old.indexOf('Automation Register') < 0) {
+      app.getRange(i + 2, head.indexOf('Notes') + 1).setValue(old + ' | v1.7 (Nov 7 2026): Automation Register ' + EXEC_URL + '?view=auto (PIN) — $100,000/yr automated-work target per line; Automations tab.');
+      app.getRange(i + 2, head.indexOf('UpdatedAt') + 1).setValue(now); out.push('noted app');
+    }
+  }
+  var ag = reg.getSheetByName('Agents'), ah = ag.getRange(1, 1, 1, ag.getLastColumn()).getValues()[0];
+  var names = ag.getRange(2, ah.indexOf('Name') + 1, Math.max(1, ag.getLastRow() - 1), 1).getValues().map(function (r) { return String(r[0]); });
+  if (names.indexOf('Automation Register') < 0) {
+    var r = { AgentId: 'AG-PE0170', Name: 'Automation Register', Role: 'Tracks every automated process per business line, its yearly value, and flags processes live 30 days without verified savings',
+      Apps: 'Crispus Profit Engine', Account: 'crispcleaninc@gmail.com', Permission: 'read-only', Status: 'Active', Runs: 'Inside dailyCheck ~7:10 AM', Notes: 'Page: ' + EXEC_URL + '?view=auto', UpdatedAt: now };
+    ag.appendRow(ah.map(function (h) { return r[h] === undefined ? '' : r[h]; })); out.push('agent added');
+  }
+  Logger.log(out.join(', ') || 'nothing new'); return out;
+}

@@ -1,0 +1,70 @@
+/**
+ * ScholarGuard v1.0 (Nov 8, 2026) - additive security patch. Nothing existing is removed.
+ *
+ * The v7 security gate (ScholarPlus.gs spCall) already ties every page action to the
+ * sign-in token. A sweep found 8 editor/trigger helpers that sat outside that gate and
+ * could still be called by anyone holding the app link:
+ *   setAiKey            -> now needs a signed-in Director token: setAiKey(key, sess)
+ *   escalate, spDailyPaymentCheck
+ *                       -> daily trigger jobs; now run at most once every 20 hours
+ *   setupOnce, forceUpgrade, installEscalation, spSetup, spInstallPaymentCheck
+ *                       -> editor setup helpers; now run at most once every 10 minutes
+ * Triggers and the script editor keep working exactly as before.
+ */
+var SG_ = { DAY_MS: 20 * 3600 * 1000, SETUP_MS: 10 * 60 * 1000 };
+
+function sgThrottle_(name, gapMs) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var props = PropertiesService.getScriptProperties(), key = 'SG_LAST_' + name;
+    var last = Number(props.getProperty(key) || 0), now = Date.now();
+    if (now - last < gapMs) return false;
+    props.setProperty(key, String(now));
+    return true;
+  } finally { lock.releaseLock(); }
+}
+
+function sgWrapThrottled_(name, gapMs, label) {
+  var g = (function () { return this; })() || globalThis;
+  var orig = g[name];
+  if (typeof orig !== 'function' || orig.__sg) return;
+  var wrapped = function () {
+    if (!sgThrottle_(name, gapMs)) return name + ' already ran recently (' + label + '). Skipped.';
+    return orig.apply(this, arguments);
+  };
+  wrapped.__sg = true;
+  g[name] = wrapped;
+}
+
+(function sgInstall_() {
+  var g = (function () { return this; })() || globalThis;
+
+  // 1. AI key: only a signed-in, active Director may set it.
+  var origKey = g.setAiKey;
+  if (typeof origKey === 'function' && !origKey.__sg) {
+    var keyFn = function (k, sess) {
+      var who = sess ? CacheService.getScriptCache().get('sp_sess_' + sess) : null;
+      var f = who ? user_(who) : null;
+      if (!f || f.status !== 'Active' || f.role !== 'Director') throw new Error('Only the signed-in Director can change the AI key.');
+      return origKey.call(this, k);
+    };
+    keyFn.__sg = true;
+    g.setAiKey = keyFn;
+  }
+
+  // 2. Daily trigger jobs.
+  ['escalate', 'spDailyPaymentCheck'].forEach(function (n) { sgWrapThrottled_(n, SG_.DAY_MS, 'once a day'); });
+
+  // 3. Editor setup helpers.
+  ['setupOnce', 'forceUpgrade', 'installEscalation', 'spSetup', 'spInstallPaymentCheck'].forEach(function (n) { sgWrapThrottled_(n, SG_.SETUP_MS, 'once per 10 minutes'); });
+})();
+
+/** Editor check (safe to re-run): confirms the guard is on. Read-only. */
+function sgStatus() {
+  var g = (function () { return this; })() || globalThis;
+  var names = ['setAiKey', 'escalate', 'spDailyPaymentCheck', 'setupOnce', 'forceUpgrade', 'installEscalation', 'spSetup', 'spInstallPaymentCheck'];
+  var out = names.map(function (n) { return n + ':' + (g[n] && g[n].__sg ? 'guarded' : 'OPEN'); }).join(', ');
+  Logger.log('ScholarGuard ' + out);
+  return out;
+}

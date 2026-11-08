@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maranatha Learning Center</title>
+<meta name="theme-color" content="#1f3a5f">
+<meta name="description" content="Maranatha Reentry Learning Center">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Maranatha">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root { --navy: #1f3a5f; --cream: #f7f4ee; --gold: #c9a04a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--cream); font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1d2430; }
+  body { display: flex; flex-direction: column; }
+  header { background: var(--navy); color: #fff; padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; display: flex; align-items: center; gap: 10px; }
+  header img { width: 30px; height: 30px; border-radius: 8px; }
+  header b { font-family: Georgia, serif; font-size: 17px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  nav { display: flex; gap: 6px; overflow-x: auto; }
+  nav button { border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; border-radius: 999px; padding: 7px 12px; font-size: 14px; white-space: nowrap; }
+  nav button.on { background: var(--gold); border-color: var(--gold); color: var(--navy); font-weight: 700; }
+  main { flex: 1; position: relative; }
+  iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  .cover { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; background: var(--cream); }
+  .cover img { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 14px; }
+  .cover h1 { font-family: Georgia, serif; color: var(--navy); font-size: 22px; margin: 0 0 8px; }
+  .cover p { margin: 0 0 16px; max-width: 360px; line-height: 1.5; color: #55606e; }
+  .btn { background: var(--navy); color: #fff; border: 0; border-radius: 12px; padding: 14px 22px; font-size: 17px; font-weight: 700; }
+  .spin { width: 34px; height: 34px; border-radius: 50%; border: 4px solid #d8dde6; border-top-color: var(--navy); animation: s 1s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  #install { position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 12px); background: #fff; border: 1px solid #d6dad3; border-left: 5px solid var(--gold);
+    border-radius: 14px; padding: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.18); display: none; z-index: 9; }
+  #install b { color: var(--navy); }
+  #install .row { display: flex; gap: 8px; margin-top: 10px; }
+  #install .x { background: transparent; color: #55606e; border: 1px solid #d6dad3; }
+  #offView { position: absolute; inset: 0; display: flex; flex-direction: column; background: #fff; }
+  .offbar { display: flex; gap: 8px; align-items: center; padding: 8px 10px; background: #fff7e0; border-bottom: 1px solid #ecd9a4; font-size: 14px; color: #5b4500; }
+  .offbar span { flex: 1; }
+  .offbar select { max-width: 45%; padding: 6px; border-radius: 8px; border: 1px solid #d6c27e; }
+  .offbar button { border: 0; background: var(--navy); color: #fff; border-radius: 8px; padding: 7px 12px; }
+  #offFrame { flex: 1; width: 100%; border: 0; position: static; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <img src="icon-192.png" alt="">
+  <b>Maranatha Learning Center</b>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <iframe id="app" credentialless title="Maranatha Learning Center" allow="camera; microphone; geolocation; clipboard-write; fullscreen" referrerpolicy="no-referrer"></iframe>
+  <div class="cover" id="loading"><div class="spin"></div><p style="margin-top:14px">Opening Maranatha…</p></div>
+  <div id="offView" hidden>
+    <div class="offbar"><span>&#9679; Offline &middot; <span id="offWhen"></span></span><select id="offPick" aria-label="Saved screens"></select><button onclick="go(cur, true)">Retry</button></div>
+    <iframe id="offFrame" sandbox="allow-same-origin" title="Saved screen"></iframe>
+  </div>
+  <div class="cover" id="offline" hidden>
+    <img src="icon-192.png" alt="">
+    <h1>You're offline</h1>
+    <p>Maranatha is installed on this device and your sign-in is saved. Your lessons and records are never stored in the app download. They stay in the Learning Center's secure account and load as soon as you're back online.</p>
+    <button class="btn" onclick="go(cur, true)">Try again</button>
+  </div>
+</main>
+<div id="install">
+  <div id="installText"></div>
+  <div class="row"><button class="btn" id="installBtn" hidden>Install app</button><button class="btn x" onclick="hideInstall(true)">Not now</button></div>
+</div>
+<script>
+var VIEWS = [{"key": "learn", "label": "Learning Center", "url": "https://script.google.com/macros/s/AKfycbx_J7U05crhzW2nLDH9dVu8eaUq41LcMzQCQygis-8gX8ztPuSv67ZmjcXKVKLd5r5b/exec"}];
+var cur = null, loaded = {};
+var frame = document.getElementById("app");
+function viewByKey(k) { for (var i = 0; i < VIEWS.length; i++) if (VIEWS[i].key === k) return VIEWS[i]; return VIEWS[0]; }
+function remember(k) { try { localStorage.setItem("maranatha-learning-center:view", k); } catch (e) {} }
+function last() { try { return localStorage.getItem("maranatha-learning-center:view"); } catch (e) { return null; } }
+function drawTabs() {
+  var n = document.getElementById("tabs"); n.innerHTML = "";
+  if (VIEWS.length < 2) return;
+  VIEWS.forEach(function (v) {
+    var b = document.createElement("button"); b.textContent = v.label; if (cur && v.key === cur.key) b.className = "on";
+    b.onclick = function () { go(v); }; n.appendChild(b);
+  });
+}
+/* Saved sign-ins: the portal tells this app which accounts are saved, and the app hands them back each time it opens,
+   so people stay signed in even though the portal frame runs without browser cookies. Kept on this device only. */
+var openKey = null;
+function savedAccounts() { try { return localStorage.getItem("maranatha-learning-center:accounts") || ""; } catch (e) { return ""; } }
+window.addEventListener("message", function (e) {
+  var d = e.data;
+  var host = ""; try { host = new URL(e.origin).hostname; } catch (x) {}
+  if (!d || d.cces !== "accounts" || !(/\.googleusercontent\.com$/.test(host) || host === "script.google.com")) return;
+  try { localStorage.setItem("maranatha-learning-center:accounts", JSON.stringify(d.accounts || [])); } catch (x) {}
+});
+function go(v, force) {
+  cur = v; remember(v.key); drawTabs();
+  if (!navigator.onLine) { show("offline"); return; }
+  history.replaceState(null, "", "#" + v.key);
+  if (!force && openKey === v.key) { show(null); return; }
+  show("loading"); openKey = v.key;
+  var a = savedAccounts(), src = v.url;
+  var tk = ""; try { tk = localStorage.getItem("maranatha-learning-center:token") || ""; } catch (x) {}
+  if (a && a !== "[]") src += "#cces=" + btoa(unescape(encodeURIComponent(a)));
+  else if (tk) src += "#tok=" + encodeURIComponent(tk);
+  frame.setAttribute("src", src);
+}
+function show(id) {
+  document.getElementById("loading").hidden = id !== "loading";
+  document.getElementById("offline").hidden = true;
+  document.getElementById("offView").hidden = true;
+  if (id === "offline") offlineView();
+}
+
+/* ---- Offline: screens you open are saved on this device (encrypted) so you can read them with no signal ---- */
+var SNAP_DAYS = 14, SNAP_MAX = 40, dbp = null;
+function db() {
+  if (!dbp) dbp = new Promise(function (res, rej) {
+    var r = indexedDB.open("maranatha-learning-center", 1);
+    r.onupgradeneeded = function () { r.result.createObjectStore("kv"); };
+    r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+  });
+  return dbp;
+}
+function kv(mode, fn) { return db().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction("kv", mode), q = fn(t.objectStore("kv")); t.oncomplete = function () { res(q && q.result); }; t.onerror = function () { rej(t.error); }; }); }); }
+function kget(k) { return kv("readonly", function (s) { return s.get(k); }); }
+function kput(k, v) { return kv("readwrite", function (s) { return s.put(v, k); }); }
+function kclear() { return kv("readwrite", function (s) { return s.clear(); }); }
+function cryptoKey() {
+  return kget("key").then(function (k) {
+    if (k) return k;
+    return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]).then(function (nk) { return kput("key", nk).then(function () { return nk; }); });
+  });
+}
+function seal(obj) { return cryptoKey().then(function (k) { var iv = crypto.getRandomValues(new Uint8Array(12)); return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, k, new TextEncoder().encode(JSON.stringify(obj))).then(function (c) { return { iv: iv, c: c }; }); }); }
+function unseal(box) { return cryptoKey().then(function (k) { return crypto.subtle.decrypt({ name: "AES-GCM", iv: box.iv }, k, box.c); }).then(function (b) { return JSON.parse(new TextDecoder().decode(b)); }); }
+function saveSnap(d) {
+  var key = String(d.key || "screen").slice(0, 120), now = Date.now();
+  return seal({ title: d.title, html: d.html, css: d.css, ts: now }).then(function (box) {
+    return kput("s:" + key, box).then(function () { return kget("index"); }).then(function (idx) {
+      idx = (idx || []).filter(function (x) { return x.key !== key && now - x.ts < SNAP_DAYS * 864e5; });
+      idx.unshift({ key: key, title: String(d.title || "Saved screen").slice(0, 80), ts: now });
+      var drop = idx.slice(SNAP_MAX); idx = idx.slice(0, SNAP_MAX);
+      return kput("index", idx).then(function () { return Promise.all(drop.map(function (x) { return kv("readwrite", function (s) { return s.delete("s:" + x.key); }); })); });
+    });
+  }).catch(function () {});
+}
+function offlineView() {
+  kget("index").then(function (idx) {
+    idx = (idx || []).filter(function (x) { return Date.now() - x.ts < SNAP_DAYS * 864e5; });
+    if (!idx.length) { document.getElementById("offline").hidden = false; return; }
+    var pick = document.getElementById("offPick"); pick.innerHTML = "";
+    idx.forEach(function (x) { var o = document.createElement("option"); o.value = x.key; o.textContent = x.title; pick.appendChild(o); });
+    pick.onchange = function () { openSnap(pick.value); };
+    document.getElementById("offView").hidden = false;
+    openSnap(idx[0].key);
+  }).catch(function () { document.getElementById("offline").hidden = false; });
+}
+function openSnap(key) {
+  kget("s:" + key).then(unseal).then(function (s) {
+    document.getElementById("offWhen").textContent = "saved " + new Date(s.ts).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    document.getElementById("offFrame").srcdoc = "<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>" + (s.css || "") +
+      "</style><style>button,input,select,textarea{pointer-events:none;opacity:.75}</style></head><body>" + (s.html || "") + "</body></html>";
+  }).catch(function () {});
+}
+window.addEventListener("message", function (e) {
+  var d = e.data, host = ""; try { host = new URL(e.origin).hostname; } catch (x) {}
+  if (!d || !(/\.googleusercontent\.com$/.test(host) || host === "script.google.com")) return;
+  if (d.cces === "snap" && d.html) saveSnap(d);
+  if (d.cces === "token") { try { if (d.token) localStorage.setItem("maranatha-learning-center:token", String(d.token)); else localStorage.removeItem("maranatha-learning-center:token"); } catch (x) {} }
+  if (d.cces === "signout" || (d.cces === "accounts" && d.accounts && !d.accounts.length)) { kclear().catch(function () {}); try { localStorage.removeItem("maranatha-learning-center:token"); } catch (x) {} }
+});
+frame.addEventListener("load", function () { if (navigator.onLine) show(null); });
+window.addEventListener("offline", function () { show("offline"); });
+window.addEventListener("online", function () { if (cur) go(cur, true); });
+go(viewByKey((location.hash || "").slice(1) || last() || VIEWS[0].key));
+
+/* Install help: one tap on Android and desktop Chrome/Edge, step-by-step on iPhone. */
+var deferred = null;
+var standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+function dismissed() { try { return localStorage.getItem("maranatha-learning-center:noInstall") === "1"; } catch (e) { return false; } }
+function hideInstall(save) { document.getElementById("install").style.display = "none"; if (save) try { localStorage.setItem("maranatha-learning-center:noInstall", "1"); } catch (e) {} }
+function offerInstall(html, button) {
+  if (standalone || dismissed()) return;
+  document.getElementById("installText").innerHTML = html;
+  document.getElementById("installBtn").hidden = !button;
+  document.getElementById("install").style.display = "block";
+}
+window.addEventListener("beforeinstallprompt", function (e) {
+  e.preventDefault(); deferred = e;
+  offerInstall("<b>Install Maranatha</b><br>Put it on your home screen or desktop. It opens like a regular app and keeps you signed in.", true);
+});
+document.getElementById("installBtn").onclick = function () {
+  if (!deferred) return; deferred.prompt(); deferred.userChoice.then(function () { deferred = null; hideInstall(false); });
+};
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) {
+  setTimeout(function () {
+    offerInstall("<b>Install Maranatha on your iPhone</b><br>1. Tap the <b>Share</b> button (square with an arrow) at the bottom of Safari.<br>2. Tap <b>Add to Home Screen</b>, then <b>Add</b>.", false);
+  }, 1500);
+}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
+</script>
+</body>
+</html>

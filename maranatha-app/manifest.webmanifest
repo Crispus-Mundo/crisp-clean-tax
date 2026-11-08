@@ -1,0 +1,35 @@
+{
+  "name": "Maranatha Learning Center",
+  "short_name": "Maranatha",
+  "description": "Maranatha Reentry Learning Center: courses, certificates, résumé builder and resources.",
+  "id": "./",
+  "start_url": "./?src=homescreen",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#1f3a5f",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Learning Center",
+      "url": "./#learn"
+    }
+  ]
+}

@@ -48,6 +48,19 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
     <a id="openNow" class="btn navy" href="#">Tap here if it does not open</a>
   </section>
 
+  <!-- v1.1 offline mode: shown when the installed app opens with no connection. Nothing private is stored on the device. -->
+  <section id="offline" class="hide" aria-live="polite" style="text-align:center">
+    <img src="icons/icon-512.png" alt="Crisp Clean" style="width:96px;height:96px;border-radius:50%;margin-top:30px">
+    <h1>You are offline</h1>
+    <p>Your portal needs an internet connection so your plan, numbers and documents stay on the secure server, not on this device.</p>
+    <p class="muted">The app will open your portal by itself as soon as you are back online.</p>
+    <div class="row" style="justify-content:center"><button id="retryBtn" class="btn navy" type="button">Try again</button></div>
+    <div class="card" style="text-align:left">
+      <h2 style="margin-top:0;font-size:1.1rem">While you wait</h2>
+      <ol><li>Gather the documents you plan to upload (W-2s, 1099s, receipts) so they are ready.</li><li>Write down any questions for your preparer; you can send them in Messages once you are back online.</li><li>Check Wi-Fi or turn off airplane mode.</li></ol>
+    </div>
+  </section>
+
   <!-- Shown in a normal browser: how to install -->
   <section id="install">
     <h1>Get the Crisp Clean app</h1>
@@ -89,8 +102,15 @@ ol{padding-left:20px;margin:6px 0}li{margin:5px 0}
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
   if (standalone) {
     document.getElementById('install').classList.add('hide');
-    document.getElementById('splash').classList.remove('hide');
-    setTimeout(function () { location.replace(target); }, 350);
+    var off = document.getElementById('offline'), spl = document.getElementById('splash');
+    var launch = function () { off.classList.add('hide'); spl.classList.remove('hide'); setTimeout(function () { location.replace(target); }, 350); };
+    if (navigator.onLine === false) {
+      off.classList.remove('hide');
+      window.addEventListener('online', launch);
+      document.getElementById('retryBtn').addEventListener('click', function () { if (navigator.onLine !== false) launch(); else document.querySelector('#offline .muted').textContent = 'Still offline. The portal will open by itself when the connection comes back.'; });
+      return;
+    }
+    launch();
     return;
   }
   var promptEvt = null, btn = document.getElementById('installBtn');

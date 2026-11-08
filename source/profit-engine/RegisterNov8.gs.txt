@@ -1,0 +1,44 @@
+/** Nov 8, 2026 - Editor helper (safe to re-run, additive): registers the static FAQ/city pages and the
+ *  Maranatha installable app in CAIOCC, and notes the SCHOLAR guard + portal offline screen on their rows. */
+function registerNov8() {
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  var reg = SpreadsheetApp.openById(CAIOCC_REGISTRY_ID), app = reg.getSheetByName('Applications');
+  var head = app.getRange(1, 1, 1, app.getLastColumn()).getValues()[0];
+  var nameCol = head.indexOf('Name') + 1, notesCol = head.indexOf('Notes') + 1;
+  var names = app.getRange(2, nameCol, Math.max(1, app.getLastRow() - 1), 1).getValues().map(function (r) { return String(r[0]); });
+  var added = [], noted = [];
+  var base = { Workspace: 'Business Operations', OwnerAccount: 'crispcleaninc@gmail.com', IntegrationMode: 'read_monitor', Lifecycle: 'active',
+    Health: 'UNCHECKED', ConsecFails: 0, Source: 'manual:claude', CreatedAt: now, UpdatedAt: now, Version: 1 };
+  var rows = [
+    { Name: 'HVAC FAQ + city pages (static)', ProdUrl: 'https://crispus-mundo.github.io/crisp-cares/hvac/', EditorUrl: 'https://github.com/Crispus-Mundo/crisp-cares/tree/main/hvac',
+      Purpose: 'Public HVAC page + 20 city pages (hvac-repair-<city>-mi.html) with FAQ structured data and tap-chip form that posts to the HVAC lead script; sitemap.xml',
+      Audience: 'Public', Notes: 'Built Nov 7 2026. Not yet submitted to Google Search Console. Copy restates existing HVAC site wording only.' },
+    { Name: 'Tax FAQ + city pages (static)', ProdUrl: 'https://crispus-mundo.github.io/crisp-clean-tax/tax/', EditorUrl: 'https://github.com/Crispus-Mundo/crisp-clean-tax/tree/main/tax',
+      Purpose: 'Public tax page + 12 city pages (tax-preparer-<city>-mi.html) with FAQ structured data; return-type chips open the Get Started funnel preselected (?p=client&k=...); sitemap.xml',
+      Audience: 'Public', Notes: 'Built Nov 7 2026. No prices on these pages. Funnel preselect = Get Started v5. Not yet submitted to Search Console.' },
+    { Name: 'Maranatha Learning Center (installable app)', ProdUrl: 'https://crispus-mundo.github.io/crisp-clean-tax/maranatha-app/', EditorUrl: 'https://github.com/Crispus-Mundo/crisp-clean-tax/tree/main/maranatha-app',
+      Purpose: 'Install-to-home-screen launcher (phone/computer) for the Maranatha Learning Center web app; caches only the launcher shell',
+      Audience: 'Learners (public link)', Notes: 'Added Nov 8 2026. Opens the existing Maranatha Learning Center Apps Script app.' }
+  ];
+  rows.forEach(function (r) {
+    if (names.indexOf(r.Name) >= 0) return;
+    var row = {}; Object.keys(base).forEach(function (k) { row[k] = base[k]; }); Object.keys(r).forEach(function (k) { row[k] = r[k]; });
+    row.AppId = Utilities.getUuid();
+    app.appendRow(head.map(function (h) { return row[h] === undefined ? '' : row[h]; })); added.push(r.Name);
+  });
+  var notes = {
+    'MUNDO INTERN APP': 'Nov 8 2026 v35 (v8.1): ScholarGuard.gs locks setAiKey (Director token), escalate/spDailyPaymentCheck (once per 20h), setup helpers (once per 10 min). Backup: BACKUP 2026-11-08 before ScholarGuard.',
+    'Crisp Clean Client Portal': 'Nov 8 2026: installable app v1.1 shows an offline screen and opens the portal by itself when back online; still stores no client data on the device.'
+  };
+  if (notesCol > 0) {
+    var vals = app.getRange(2, 1, Math.max(1, app.getLastRow() - 1), app.getLastColumn()).getValues();
+    vals.forEach(function (v, i) {
+      var n = String(v[nameCol - 1]), add = notes[n];
+      if (!add) return;
+      var cur = String(v[notesCol - 1] || '');
+      if (cur.indexOf(add.slice(0, 24)) >= 0) return;
+      app.getRange(i + 2, notesCol).setValue(cur ? cur + ' | ' + add : add); noted.push(n);
+    });
+  }
+  Logger.log('CAIOCC added: ' + (added.join(', ') || 'nothing new') + ' | noted: ' + (noted.join(', ') || 'nothing new'));
+}

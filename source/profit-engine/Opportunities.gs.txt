@@ -34,6 +34,23 @@ var OPP_SEARCHES = [
   ['CMCC', ['workforce training', 'registered apprenticeship'], '12|23'],
   ['MARANATHA', ['reentry', 'second chance'], '12']
 ];
+// A listing is kept only if its title has one of these words for that line (Grants.gov matches words loosely).
+var OPP_TERMS = {
+  CARES: ['care', 'caregiv', 'aging', 'elder', 'older adult', 'home', 'disabilit', 'direct service', 'long-term', 'nursing', 'health workforce'],
+  HVAC: ['energy', 'weatheriz', 'heat', 'efficien', 'hvac', 'building', 'clean', 'decarboniz', 'electrif', 'retrofit'],
+  TAX: ['tax', 'financial', 'vita', 'asset', 'income', 'credit', 'economic mobility'],
+  MERCH: ['business', 'entrepreneur', 'minority', 'export', 'retail', 'market', 'commerce', 'women-owned'],
+  CMCC: ['workforce', 'training', 'apprentic', 'career', 'skill', 'job', 'credential', 'education'],
+  MARANATHA: ['reentry', 're-entry', 'second chance', 'offender', 'incarcerat', 'justice', 'returning citizen', 'prison']
+};
+function oppText_(s) {
+  return String(s || '').replace(/&rsquo;|&lsquo;|&#39;/g, "'").replace(/&ldquo;|&rdquo;|&quot;/g, '"').replace(/&amp;/g, '&')
+    .replace(/&ndash;|&mdash;/g, '-').replace(/&[a-z]+;/g, ' ');
+}
+function oppFits_(line, title) {
+  var t = oppText_(title).toLowerCase();
+  return (OPP_TERMS[line] || []).some(function (w) { return t.indexOf(w) >= 0; });
+}
 var OPP_LINKS = [
   ['Michigan SIGMA Vendor Self Service (state bids)', 'https://sigma.michigan.gov/'],
   ['SAM.gov (federal contracts)', 'https://sam.gov/'],
@@ -57,7 +74,7 @@ function setupOpportunities() {
 }
 
 function oppSearch_(keyword, elig) {
-  var body = { rows: 25, keyword: keyword, oppStatuses: 'forecasted|posted', eligibilities: elig, sortBy: 'openDate|desc' };
+  var body = { rows: 25, keyword: '"' + keyword + '"', oppStatuses: 'forecasted|posted', eligibilities: elig, sortBy: 'openDate|desc' };
   var res = UrlFetchApp.fetch(OPP_API, { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true });
   if (res.getResponseCode() !== 200) throw new Error('Grants.gov answered ' + res.getResponseCode());
   var j = JSON.parse(res.getContentText());
@@ -75,6 +92,7 @@ function opportunityScan(quiet) {
       try {
         oppSearch_(kw, s[2]).forEach(function (h) {
           var id = String(h.id || ''); if (!id) return;
+          if (!oppFits_(s[0], h.title)) return;  // drop loose keyword matches
           var key = id + '|' + s[0];
           if (have[key]) {  // keep dates/status current, leave your state and notes alone
             var r = have[key];
@@ -82,7 +100,7 @@ function opportunityScan(quiet) {
               update_('Opportunities', r._row, { close_date: h.closeDate || '', status: h.oppStatus || '', updated: today_() });
             return;
           }
-          var row = { source: 'Grants.gov', opp_id: id, number: h.number || '', title: h.title || '', agency: h.agency || h.agencyName || h.agencyCode || '',
+          var row = { source: 'Grants.gov', opp_id: id, number: h.number || '', title: oppText_(h.title), agency: oppText_(h.agency || h.agencyName || h.agencyCode || ''),
             open_date: h.openDate || '', close_date: h.closeDate || '', status: h.oppStatus || '', line: s[0], keyword: kw,
             eligibility: s[2].split('|').map(function (c) { return OPP_ELIG[c] || c; }).join(' / '),
             link: 'https://www.grants.gov/search-results-detail/' + id, found: today_(), state: 'new', notes: '', updated: today_() };
@@ -214,4 +232,21 @@ function registerOpportunities() {
     ag.appendRow(ah.map(function (h) { return r[h] === undefined ? '' : r[h]; })); out.push('agent added');
   }
   Logger.log(out.join(', ') || 'nothing new'); return out;
+}
+
+/** Run once if Google has not yet allowed the Grants.gov connection: asks only for that permission. */
+function oppAuthorize() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, ['https://www.googleapis.com/auth/script.external_request']);
+  return 'Grants.gov connection allowed.';
+}
+
+/** Clean-up (safe to re-run): removes untouched rows (state "new", no notes) whose titles don't fit their line. */
+function oppPrune() {
+  var sh = sheet_('Opportunities'), rows = rows_('Opportunities'), n = 0;
+  for (var i = rows.length - 1; i >= 0; i--) {
+    var r = rows[i];
+    if (r.state === 'new' && !r.notes && !oppFits_(r.line, r.title)) { sh.deleteRow(r._row); n++; }
+    else if (/&[a-z]+;/.test(String(r.title)) || /&[a-z]+;/.test(String(r.agency))) update_('Opportunities', r._row, { title: oppText_(r.title), agency: oppText_(r.agency) });
+  }
+  Logger.log('Removed ' + n + ' loose matches; kept ' + (rows.length - n)); return n;
 }

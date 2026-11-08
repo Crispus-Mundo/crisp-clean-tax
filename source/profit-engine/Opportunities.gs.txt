@@ -1,0 +1,217 @@
+/**
+ * Crispus Profit Engine — v1.8 add-on (Nov 7, 2026): GRANTS & FUNDER FEED (Opportunity middleware, phase 1).
+ *
+ * Pulls open and forecasted federal grants from the public Grants.gov API (no key, no login) for each
+ * business line, plus Maranatha Reentry as a nonprofit partner line, and keeps them in the
+ * "Opportunities" tab. You decide what to pursue — nothing is applied for or sent anywhere.
+ *
+ * Page (PIN): <exec>?t=…&view=opps   (button "Grants" on every signed-in page)
+ * Scan: opportunityScan() runs daily ~6:40 AM; emails you (internal alert, direct link) only when new items arrive.
+ * Setup (once, from the editor): run setupOpportunities().
+ *
+ * Eligibility matters: most federal grants exclude for-profit LLCs. Every row shows which applicant types
+ * the search was filtered for (Small business = code 23, Nonprofit 501(c)(3) = code 12).
+ * State, foundation and procurement sources (SIGMA VSS, MiDEAL, SAM.gov) are linked, not pulled, in this phase.
+ *
+ * Required notice: This product uses the Grants.gov API but is not endorsed or certified by the
+ * U.S. Department of Health and Human Services.
+ *
+ * Additive only: wraps act_, doGet and page_ again (on top of v1.7); nothing existing is removed.
+ */
+
+TABS.Opportunities = ['source', 'opp_id', 'number', 'title', 'agency', 'open_date', 'close_date', 'status', 'line', 'keyword',
+  'eligibility', 'link', 'found', 'state', 'notes', 'updated'];
+var OPP_API = 'https://api.grants.gov/v1/api/search2';
+var OPP_STATES = ['new', 'reviewing', 'applying', 'submitted', 'skipped'];
+var OPP_ELIG = { '23': 'Small business', '12': 'Nonprofit 501(c)(3)' };
+var OPP_NOTICE = 'This product uses the Grants.gov API but is not endorsed or certified by the U.S. Department of Health and Human Services.';
+// line, keywords, eligibility codes (pipe-joined)
+var OPP_SEARCHES = [
+  ['CARES', ['home care', 'direct care workforce', 'family caregiver'], '23|12'],
+  ['HVAC', ['energy efficiency', 'weatherization', 'heat pump'], '23'],
+  ['TAX', ['volunteer income tax assistance', 'financial capability'], '12|23'],
+  ['MERCH', ['small business development', 'minority business'], '23'],
+  ['CMCC', ['workforce training', 'registered apprenticeship'], '12|23'],
+  ['MARANATHA', ['reentry', 'second chance'], '12']
+];
+var OPP_LINKS = [
+  ['Michigan SIGMA Vendor Self Service (state bids)', 'https://sigma.michigan.gov/'],
+  ['SAM.gov (federal contracts)', 'https://sam.gov/'],
+  ['Michigan Economic Development Corp. (MEDC)', 'https://www.michiganbusiness.org/'],
+  ['Community Foundation for Southeast Michigan', 'https://cfsem.org/'],
+  ['Michigan Dept. of Labor & Economic Opportunity', 'https://www.michigan.gov/leo'],
+  ['Grants.gov search (all federal grants)', 'https://www.grants.gov/search-grants']
+];
+
+/** Run once from the editor (safe to re-run): creates the tab, runs the first scan, adds the daily scan. */
+function setupOpportunities() {
+  var ss = ss_(), sh = ss.getSheetByName('Opportunities');
+  if (!sh) sh = ss.insertSheet('Opportunities');
+  if (sh.getLastRow() === 0) { sh.appendRow(TABS.Opportunities); sh.setFrozenRows(1); sh.getRange(1, 1, 1, TABS.Opportunities.length).setFontWeight('bold'); }
+  var has = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'opportunityScan'; });
+  if (!has) ScriptApp.newTrigger('opportunityScan').timeBased().everyDays(1).atHour(6).nearMinute(40).create();
+  var r = opportunityScan(true);
+  Logger.log('Scan: ' + JSON.stringify(r) + ' | page: ' + execUrl_() + '?view=opps (sign in first)');
+  Logger.log('Render check: ' + oppPage_(token_(), '', '', '').getContent().length + ' chars');
+  return r;
+}
+
+function oppSearch_(keyword, elig) {
+  var body = { rows: 25, keyword: keyword, oppStatuses: 'forecasted|posted', eligibilities: elig, sortBy: 'openDate|desc' };
+  var res = UrlFetchApp.fetch(OPP_API, { method: 'post', contentType: 'application/json', payload: JSON.stringify(body), muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Grants.gov answered ' + res.getResponseCode());
+  var j = JSON.parse(res.getContentText());
+  if (j.errorcode && j.errorcode !== 0) throw new Error('Grants.gov: ' + (j.msg || j.errorcode));
+  return (j.data && j.data.oppHits) || [];
+}
+
+/** Daily scan. Adds new opportunities only (never overwrites your state or notes). */
+function opportunityScan(quiet) {
+  var have = {};
+  rows_('Opportunities').forEach(function (r) { have[String(r.opp_id) + '|' + r.line] = r; });
+  var added = [], errors = [];
+  OPP_SEARCHES.forEach(function (s) {
+    s[1].forEach(function (kw) {
+      try {
+        oppSearch_(kw, s[2]).forEach(function (h) {
+          var id = String(h.id || ''); if (!id) return;
+          var key = id + '|' + s[0];
+          if (have[key]) {  // keep dates/status current, leave your state and notes alone
+            var r = have[key];
+            if (String(r.close_date) !== String(h.closeDate || '') || String(r.status) !== String(h.oppStatus || ''))
+              update_('Opportunities', r._row, { close_date: h.closeDate || '', status: h.oppStatus || '', updated: today_() });
+            return;
+          }
+          var row = { source: 'Grants.gov', opp_id: id, number: h.number || '', title: h.title || '', agency: h.agency || h.agencyName || h.agencyCode || '',
+            open_date: h.openDate || '', close_date: h.closeDate || '', status: h.oppStatus || '', line: s[0], keyword: kw,
+            eligibility: s[2].split('|').map(function (c) { return OPP_ELIG[c] || c; }).join(' / '),
+            link: 'https://www.grants.gov/search-results-detail/' + id, found: today_(), state: 'new', notes: '', updated: today_() };
+          append_('Opportunities', row); have[key] = row; added.push(row);
+        });
+      } catch (e) { errors.push(kw + ': ' + e.message); }
+      Utilities.sleep(250);
+    });
+  });
+  props_().setProperty('OPP_LAST', JSON.stringify({ time: new Date().toISOString(), added: added.length, errors: errors }));
+  if (!quiet && added.length) {  // internal alert to herself: direct link, no ADA disclosure needed
+    var by = {}; added.forEach(function (a) { (by[a.line] = by[a.line] || []).push(a); });
+    var html = '<div style="font-family:Arial,sans-serif;max-width:640px"><h2 style="color:#1f2a44">' + added.length + ' new grant opportunit' + (added.length === 1 ? 'y' : 'ies') + '</h2>' +
+      Object.keys(by).map(function (k) { return '<h3 style="margin:14px 0 4px">' + esc_(k) + '</h3><ul>' + by[k].slice(0, 10).map(function (a) {
+        return '<li><a href="' + a.link + '">' + esc_(a.title) + '</a> — ' + esc_(a.agency) + (a.close_date ? ' · closes ' + esc_(a.close_date) : ' · ' + esc_(a.status)) + '</li>'; }).join('') + '</ul>'; }).join('') +
+      '<p><a href="' + execUrl_() + '" style="background:#1f2a44;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">Open the Profit Engine</a> then tap Grants.</p>' +
+      '<p style="color:#6b7280;font-size:12px">' + OPP_NOTICE + '</p></div>';
+    MailApp.sendEmail({ to: Session.getEffectiveUser().getEmail(), subject: 'Grants feed: ' + added.length + ' new', htmlBody: html });
+  }
+  return { added: added.length, errors: errors };
+}
+
+function oppDays_(d) {  // Grants.gov dates are MM/DD/YYYY
+  var m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/); if (!m) return null;
+  return Math.ceil((new Date(+m[3], +m[1] - 1, +m[2], 23, 59) - new Date()) / 86400000);
+}
+
+function oppAct_(p) {
+  if (p.a === 'oppstate') {
+    var r = rows_('Opportunities').filter(function (x) { return String(x.opp_id) === String(p.id) && x.line === p.oline; })[0];
+    if (!r) throw new Error('Opportunity not found');
+    if (OPP_STATES.indexOf(p.state) < 0) throw new Error('Unknown state');
+    var v = { state: p.state, updated: today_() }; if (p.notes !== undefined) v.notes = p.notes;
+    update_('Opportunities', r._row, v);
+    return r.title + ': ' + p.state + '.';
+  }
+  if (p.a === 'oppscan') { var s = opportunityScan(true); return 'Scanned Grants.gov: ' + s.added + ' new.' + (s.errors.length ? ' Problems: ' + s.errors.join('; ') : ''); }
+  return '';
+}
+var _oppOrigAct = act_;
+act_ = function (p) { if (p && p.a && String(p.a).indexOf('opp') === 0) return oppAct_(p); return _oppOrigAct(p); };
+
+function oppPage_(t, msg, line, state) {
+  var rows = rows_('Opportunities'), last = JSON.parse(props_().getProperty('OPP_LAST') || '{}');
+  var lines = OPP_SEARCHES.map(function (s) { return s[0]; });
+  var show = rows.filter(function (r) { return (!line || r.line === line) && (state ? r.state === state : r.state !== 'skipped'); });
+  show.sort(function (a, b) { var x = oppDays_(a.close_date), y = oppDays_(b.close_date); return (x === null ? 9999 : x) - (y === null ? 9999 : y); });
+  var counts = lines.map(function (k) {
+    var mine = rows.filter(function (r) { return r.line === k && r.state !== 'skipped'; });
+    var soon = mine.filter(function (r) { var d = oppDays_(r.close_date); return d !== null && d >= 0 && d <= 30; }).length;
+    return '<a class="btn' + (line === k ? '' : ' light') + '" href="' + link_({ t: t, view: 'opps', line: k }) + '">' + k + ' ' + mine.length + (soon ? ' · ' + soon + ' closing' : '') + '</a>';
+  }).join('');
+  var list = show.slice(0, 150).map(function (r) {
+    var d = oppDays_(r.close_date);
+    var when = d === null ? esc_(r.status || '') : d < 0 ? '<span class="muted">closed</span>' : d <= 14 ? '<span class="bad">' + d + ' days left</span>' : d + ' days left';
+    var btns = OPP_STATES.filter(function (s) { return s !== r.state; }).map(function (s) {
+      return '<a class="btn light" href="' + link_({ t: t, view: 'opps', line: line || '', a: 'oppstate', id: r.opp_id, oline: r.line, state: s }) + '">' + s + '</a>'; }).join('');
+    return '<tr><td><span class="pill">' + esc_(r.line) + '</span> <a href="' + esc_(r.link) + '" target="_blank"><b>' + esc_(r.title) + '</b></a>' +
+      '<div class="muted">' + esc_(r.agency) + ' · ' + esc_(r.number) + ' · searched for: ' + esc_(r.eligibility) + ' · "' + esc_(r.keyword) + '"</div>' +
+      (r.notes ? '<div class="muted">Notes: ' + esc_(r.notes) + '</div>' : '') + '<div>' + btns + '</div></td><td>' + esc_(r.state) + '</td><td>' + when +
+      '<div class="muted">' + esc_(r.close_date || '') + '</div></td></tr>';
+  }).join('') || '<tr><td class="muted">Nothing here yet. Tap "Scan now", or run setupOpportunities() once from the editor.</td></tr>';
+  var body = (msg ? '<div class="card ok">' + esc_(msg) + '</div>' : '') +
+    '<div class="card"><b>Grants &amp; funder feed</b><div class="muted">Open and forecasted federal grants from Grants.gov, matched to each line. Last scan: ' +
+    esc_(last.time ? new Date(last.time).toLocaleString() : 'not yet') + (last.errors && last.errors.length ? ' · <span class="bad">' + last.errors.length + ' search problem(s)</span>' : '') +
+    '. Read each listing\'s eligibility before you spend time on it — most federal grants exclude for-profit LLCs.</div>' +
+    '<div style="margin-top:8px">' + counts + ' <a class="btn light" href="' + link_({ t: t, view: 'opps' }) + '">All</a>' +
+    OPP_STATES.map(function (s) { return '<a class="btn light" href="' + link_({ t: t, view: 'opps', line: line || '', state: s }) + '">' + s + '</a>'; }).join('') +
+    '<a class="btn" href="' + link_({ t: t, view: 'opps', line: line || '', a: 'oppscan' }) + '">Scan now</a></div></div>' +
+    '<div class="card"><b>' + (line || 'All lines') + (state ? ' · ' + state : '') + '</b> <span class="muted">(soonest deadline first; skipped hidden unless you pick "skipped")</span>' +
+    '<table><tr><th>Opportunity</th><th>Your status</th><th>Deadline</th></tr>' + list + '</table></div>' +
+    '<div class="card"><b>Also check</b> <span class="muted">(not pulled automatically yet)</span><ul>' +
+    OPP_LINKS.map(function (l) { return '<li><a href="' + l[1] + '" target="_blank">' + esc_(l[0]) + '</a></li>'; }).join('') +
+    '</ul><div class="muted">State bids only reach you once your SIGMA VSS vendor profile lists the commodity codes for each entity.</div></div>' +
+    '<p class="muted">' + OPP_NOTICE + '</p>';
+  return page_('Grants & Funder Feed', body, t);
+}
+
+// ------------------------------------------------------------------ hooks (additive)
+var _oppOrigDoGet = doGet;
+doGet = function (e) {
+  var p = (e && e.parameter) || {};
+  if (p.view === 'opps' && !p.front && !p.card && !p.vcf && !p.pin && tokenOk_(p.t)) {
+    var msg = '';
+    try { msg = act_(p); } catch (err) { msg = 'Could not do that: ' + err.message; }
+    var lines = OPP_SEARCHES.map(function (s) { return s[0]; });
+    return oppPage_(p.t, msg, lines.indexOf(p.line) >= 0 ? p.line : '', OPP_STATES.indexOf(p.state) >= 0 && p.a !== 'oppstate' ? p.state : '');
+  }
+  return _oppOrigDoGet(e);
+};
+var _oppOrigPage = page_;
+page_ = function (title, body, t) {
+  if (t && title === 'Make My Business Profitable') {
+    try {
+      var rows = rows_('Opportunities').filter(function (r) { return r.state !== 'skipped'; });
+      var fresh = rows.filter(function (r) { return r.state === 'new'; }).length;
+      var soon = rows.filter(function (r) { var d = oppDays_(r.close_date); return d !== null && d >= 0 && d <= 30; }).length;
+      body = '<div class="card"><b>Grants &amp; funder feed</b><div class="k"><a href="' + link_({ t: t, view: 'opps' }) + '">' + fresh + ' new</a></div><div class="muted">' +
+        rows.length + ' tracked · ' + soon + ' closing within 30 days</div></div>' + body;
+    } catch (e) {}
+  }
+  var out = _oppOrigPage(title, body, t);
+  if (!t) return out;
+  var c = out.getContent();
+  if (c.indexOf('>Grants</a>') < 0) c = c.replace('>Listings &amp; cards</a>', '>Listings &amp; cards</a><a class="btn light" href="' + link_({ t: t, view: 'opps' }) + '" target="_top">Grants</a>');
+  return HtmlService.createHtmlOutput(c).setTitle(APP.NAME).addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+};
+
+/** Run once after setupOpportunities(): CAIOCC notes + agent roster. */
+function registerOpportunities() {
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  var reg = SpreadsheetApp.openById(CAIOCC_REGISTRY_ID), out = [];
+  var app = reg.getSheetByName('Applications'), head = app.getRange(1, 1, 1, app.getLastColumn()).getValues()[0];
+  var v = app.getRange(2, 1, app.getLastRow() - 1, head.length).getValues();
+  for (var i = 0; i < v.length; i++) if (String(v[i][head.indexOf('Name')]) === 'Crispus Profit Engine') {
+    var old = String(v[i][head.indexOf('Notes')] || '');
+    if (old.indexOf('Grants & funder feed') < 0) {
+      app.getRange(i + 2, head.indexOf('Notes') + 1).setValue(old + ' | v1.8 (Nov 7 2026): Grants & funder feed ' + EXEC_URL + '?view=opps (PIN) — Grants.gov daily scan per line + Maranatha; Opportunities tab.');
+      app.getRange(i + 2, head.indexOf('UpdatedAt') + 1).setValue(now); out.push('noted app');
+    }
+  }
+  var ag = reg.getSheetByName('Agents'), ah = ag.getRange(1, 1, 1, ag.getLastColumn()).getValues()[0];
+  var names = ag.getRange(2, ah.indexOf('Name') + 1, Math.max(1, ag.getLastRow() - 1), 1).getValues().map(function (r) { return String(r[0]); });
+  if (names.indexOf('Grants & Funder Feed') < 0) {
+    var r = { AgentId: 'AG-PE0180', Name: 'Grants & Funder Feed', Role: 'Pulls open/forecasted federal grants from Grants.gov per business line and for Maranatha; emails you when new ones arrive',
+      Apps: 'Crispus Profit Engine', Account: 'crispcleaninc@gmail.com', Permission: 'read-only (alerts to owner only)', Status: 'Active', Runs: 'opportunityScan daily ~6:40 AM',
+      Notes: 'Page: ' + EXEC_URL + '?view=opps. Nothing is applied for automatically.', UpdatedAt: now };
+    ag.appendRow(ah.map(function (h) { return r[h] === undefined ? '' : r[h]; })); out.push('agent added');
+  }
+  Logger.log(out.join(', ') || 'nothing new'); return out;
+}

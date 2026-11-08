@@ -1,0 +1,78 @@
+/**
+ * Crispus Profit Engine — v1.9 add-on (Nov 7, 2026): one-tap qualifier chips + short-answer FAQ on the
+ * public front pages (?front=CARES | MERCH | CMCC).
+ *
+ * - Chips above the form: tap what you need (fills the existing "What do you need?" list) and one
+ *   qualifier per business (weekly care hours / number of stores / when you want to start). The
+ *   qualifier is added to the front of the notes, so it lands in the Leads tab with no new columns.
+ * - A short FAQ under the form, with FAQPage structured data. Every answer restates wording already
+ *   on that page (nothing new is promised).
+ *
+ * Additive only: wraps frontPage_; the form, consent text and lead handling are unchanged.
+ */
+var FRONT_CHIPS = {
+  CARES: { q: 'About how many hours of care a week?', opts: ['Under 10', '10 to 20', '20 to 40', '40 or more', 'Not sure'] },
+  MERCH: { q: 'How many stores or locations?', opts: ['1', '2 to 5', '6 to 20', 'More than 20', 'Online only'] },
+  CMCC: { q: 'When do you want to start?', opts: ['This month', 'Next 1 to 3 months', 'Later this year', 'Just exploring'] }
+};
+var FRONT_FAQ = {
+  CARES: [
+    ['What kind of help do you offer?', 'Personal care and companionship, help after a hospital stay, respite for family caregivers, and light housekeeping and meals.'],
+    ['What happens after I send this?', 'We call you back to talk through a care plan.'],
+    ['Should I include medical records or insurance numbers?', 'No. Please leave medical records, diagnoses and insurance numbers out of this form. We collect what we need privately when we call.'],
+    ['Does sending this cost anything?', 'No. This request is not a contract and you are not charged anything.']
+  ],
+  MERCH: [
+    ['What does Crisp Clean Merch do?', 'Store resets, product placement, holiday windows and sell-in plans for brands and stores.'],
+    ['Who owns what you prepare?', 'Everything we prepare for you is a Crisp Clean Merch work product.'],
+    ['Does sending this cost anything?', 'No. This request is not a contract and you are not charged anything.']
+  ],
+  CMCC: [
+    ['What programs can I train for?', 'Phlebotomy, tax preparation, and barbering, cosmetology and mechanics credentialing.'],
+    ['How do I find out dates and cost?', 'Program dates, tuition and funding options (such as WIOA) are confirmed with you in writing before you enroll.'],
+    ['Does sending this cost anything?', 'No. This request is not a contract and you are not charged anything.']
+  ]
+};
+function frontChipsCss_() {
+  return '.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.chip{background:#fff;color:#1B2951;border:1px solid #c9c3b6;border-radius:999px;' +
+    'padding:9px 14px;font-size:15px;width:auto;margin:0;cursor:pointer}.chip.on{background:#1B2951;color:#fff;border-color:#1B2951}' +
+    '.cq{font-size:15px;margin:12px 0 2px}.faq h2{font-size:20px;margin:4px 0 8px}.faq details{border-top:1px solid #eee;padding:10px 0}' +
+    '.faq summary{font-weight:bold;cursor:pointer}.faq p{margin:6px 0 0}';
+}
+var _fpOrigFront = frontPage_;
+frontPage_ = function (key, note, ok) {
+  var out = _fpOrigFront(key, note, ok);
+  try {
+    key = String(key || '').toUpperCase();
+    var f = FRONT[key], c = FRONT_CHIPS[key], faq = FRONT_FAQ[key];
+    if (!f) return out;
+    var html = out.getContent();
+    if (!ok && c && html.indexOf('<label>What do you need?') >= 0) {
+      var chips = '<div class="cq">Tap what you need</div><div class="chips" id="needChips">' +
+        f.asks.map(function (a) { return '<button type="button" class="chip" data-v="' + esc_(a) + '">' + esc_(a) + '</button>'; }).join('') + '</div>' +
+        '<div class="cq">' + esc_(c.q) + '</div><div class="chips" id="qChips">' +
+        c.opts.map(function (a) { return '<button type="button" class="chip" data-v="' + esc_(a) + '">' + esc_(a) + '</button>'; }).join('') + '</div>' +
+        '<input type="hidden" id="qVal" value="">';
+      html = html.replace('<label>What do you need?', chips + '<label>What do you need?');
+      var js = '<script>(function(){var Q=' + JSON.stringify(c.q) + ';' +
+        'function grp(id,fn){var g=document.getElementById(id);if(!g)return;[].forEach.call(g.querySelectorAll(".chip"),function(b){b.onclick=function(){' +
+        '[].forEach.call(g.querySelectorAll(".chip"),function(x){x.classList.toggle("on",x===b)});fn(b.getAttribute("data-v"))}})}' +
+        'grp("needChips",function(v){var s=document.querySelector("select[name=need]");if(s)s.value=v});' +
+        'grp("qChips",function(v){document.getElementById("qVal").value=v});' +
+        'var fm=document.querySelector("form");if(fm)fm.addEventListener("submit",function(){var v=document.getElementById("qVal").value,t=fm.querySelector("textarea[name=notes]");' +
+        'if(v&&t&&t.value.indexOf(Q)<0)t.value=(Q+" "+v+(t.value?". "+t.value:"")).slice(0,600)})})();</script>';
+      html = html.replace('</main>', '</main>' + js);
+    }
+    if (faq) {
+      var ld = { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faq.map(function (q) {
+        return { '@type': 'Question', name: q[0], acceptedAnswer: { '@type': 'Answer', text: q[1] } }; }) };
+      var block = '<div class="card faq"><h2>Quick answers</h2>' + faq.map(function (q) {
+        return '<details><summary>' + esc_(q[0]) + '</summary><p>' + esc_(q[1]) + '</p></details>'; }).join('') + '</div>' +
+        '<script type="application/ld+json">' + JSON.stringify(ld).replace(/</g, '\\u003c') + '</script>';
+      html = html.replace(/(<p class="muted">[^<]*<\/p><\/main>)/, block + '$1');
+    }
+    html = html.replace('</style>', frontChipsCss_() + '</style>');
+    return HtmlService.createHtmlOutput(html).setTitle(f.brand + ' — Get started')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+  } catch (e) { return out; }
+};

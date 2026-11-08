@@ -1,0 +1,142 @@
+/**
+ * Crispus Profit Engine — v2.0 add-on (Nov 7, 2026): FAITH & FINDINGS POST STUDIO (fact-check builder).
+ *
+ * Page (PIN): <exec>?t=…&view=posts   (button "Post Studio" on every signed-in page)
+ * Data: "Posts" tab in the Profit Engine data sheet.
+ *
+ * Flow for each viral claim: claim as stated → original source → what it actually found → its limits →
+ * verdict → scripture / biblical take → call to action → one ready-to-paste post.
+ * Built-in rules for FNF posts: one post per topic (everything in a single post), no
+ * "a video going around says" openers, no NBA framing, personal testimony kept light and non-identifying.
+ * The studio flags those in the draft; it never posts anywhere — you copy and paste.
+ *
+ * Additive only: wraps act_, doGet and page_; nothing existing is removed.
+ */
+TABS.Posts = ['id', 'claim', 'claim_link', 'topic', 'source_title', 'source_link', 'source_who', 'source_date', 'found', 'limits',
+  'verdict', 'scripture', 'take', 'cta', 'status', 'draft', 'updated'];
+var POST_STATUSES = ['queued', 'researching', 'drafted', 'posted', 'dropped'];
+var POST_VERDICTS = ['Supported', 'Partly supported', 'Not supported', 'Unproven so far'];
+var POST_TOPICS = ['Health myth', 'Science news', 'Viral story', 'Money / scams', 'Family', 'Other'];
+var POST_CHECKS = [
+  ['Find the original', 'Trace the claim to the study, report or first post — not a repost or a clip.'],
+  ['Check the date', 'Old stories recirculate. Note when it was published.'],
+  ['Who did it?', 'University, agency, company or influencer? Who paid for it?'],
+  ['People, animals or cells?', 'Results in mice or petri dishes do not show the same thing in people.'],
+  ['How many?', 'A study of 12 people is a lead, not proof.'],
+  ['Link or cause?', 'Two things happening together does not mean one caused the other.'],
+  ['Still standing?', 'Check whether the study was corrected or retracted.']
+];
+var POST_LINKS = [['PubMed (medical studies)', 'https://pubmed.ncbi.nlm.nih.gov/'], ['Retraction Watch', 'https://retractionwatch.com/'],
+  ['Cochrane Library (evidence reviews)', 'https://www.cochranelibrary.com/'], ['Bible Gateway', 'https://www.biblegateway.com/']];
+
+function postFlags_(text) {
+  var t = String(text || ''), f = [];
+  if (/\bNBA\b/i.test(t)) f.push('Mentions the NBA — keep the message, drop the NBA framing.');
+  if (/^\s*(a|this|the)?\s*(viral\s+)?(video|post|clip)\s+(is\s+)?going around/i.test(t) || /going around (says|saying)/i.test(t))
+    f.push('Opens with "going around" — state the topic directly instead.');
+  if (t.length > 2000) f.push('Long for one post (' + t.length + ' characters). Everything must still fit in a single post.');
+  if (/\b(my client|our client|patient)\b/i.test(t)) f.push('Mentions a client or patient — keep testimony light and non-identifying.');
+  return f;
+}
+function postDraft_(p) {
+  var lines = [];
+  if (p.claim) lines.push(p.claim.replace(/\s+$/, '') + (/[.?!]$/.test(p.claim) ? '' : '.'));
+  if (p.verdict) lines.push('What the evidence says: ' + p.verdict.toLowerCase() + '.');
+  if (p.found) lines.push(p.found);
+  if (p.limits) lines.push('What it does not show: ' + p.limits);
+  if (p.source_title || p.source_link) lines.push('Source: ' + [p.source_title, p.source_who, p.source_date].filter(String).join(', ') + (p.source_link ? ' — ' + p.source_link : ''));
+  if (p.scripture || p.take) lines.push([p.take, p.scripture ? '(' + p.scripture + ')' : ''].filter(String).join(' '));
+  if (p.cta) lines.push(p.cta);
+  return lines.join('\n\n');
+}
+
+function postAct_(p) {
+  if (p.a === 'postsave') {
+    var vals = {}; TABS.Posts.forEach(function (k) { if (p[k] !== undefined && k !== 'id' && k !== 'updated') vals[k] = String(p[k]).slice(0, 4000); });
+    if (!vals.claim) throw new Error('Write the claim first');
+    if (p.rebuild === 'yes' || !vals.draft) vals.draft = postDraft_(vals);
+    vals.updated = today_();
+    var r = p.id ? rows_('Posts').filter(function (x) { return x.id === p.id; })[0] : null;
+    if (r) { update_('Posts', r._row, vals); return 'Saved.'; }
+    vals.id = 'PS-' + id_(); vals.status = vals.status || 'queued'; append_('Posts', vals); return 'Added to the queue.';
+  }
+  return '';
+}
+var _postOrigAct = act_;
+act_ = function (p) { if (p && p.a && String(p.a).indexOf('post') === 0) return postAct_(p); return _postOrigAct(p); };
+
+function postForm_(t, r) {
+  r = r || { status: 'queued', topic: 'Health myth' };
+  var inp = function (k, label, ph) { return '<label>' + label + '<input name="' + k + '" value="' + esc_(r[k]) + '"' + (ph ? ' placeholder="' + esc_(ph) + '"' : '') + '></label>'; };
+  var ta = function (k, label, ph, rows) { return '<label>' + label + '<textarea name="' + k + '" rows="' + (rows || 3) + '"' + (ph ? ' placeholder="' + esc_(ph) + '"' : '') + '>' + esc_(r[k]) + '</textarea></label>'; };
+  var sel = function (k, label, list) { return '<label>' + label + '<select name="' + k + '">' + list.map(function (x) { return '<option' + (String(r[k]) === x ? ' selected' : '') + '>' + esc_(x) + '</option>'; }).join('') + '</select></label>'; };
+  return form_({ t: t, view: 'posts', a: 'postsave', id: r.id || '', open: r.id || '' },
+    '<b>1. The claim</b>' + ta('claim', 'Say the claim plainly (this is how the post opens)', 'e.g. Mold in your home can make you sick.', 2) + inp('claim_link', 'Where you saw it (link)') + sel('topic', 'Topic', POST_TOPICS) +
+    '<b>2. The source</b>' + inp('source_title', 'Study or report title') + inp('source_link', 'Link to the original') + '<div class="grid">' + inp('source_who', 'Who published / paid for it') + inp('source_date', 'Date') + '</div>' +
+    ta('found', 'What it actually found', '', 3) + ta('limits', 'Its limits (people/animals, how many, link vs cause, corrected?)', '', 3) + sel('verdict', 'Verdict', [''].concat(POST_VERDICTS)) +
+    '<b>3. Faith and findings</b>' + inp('scripture', 'Scripture reference', 'e.g. Proverbs 14:15') + ta('take', 'Your biblical take', '', 3) + inp('cta', 'Call to action', 'e.g. Comment with a claim you want checked next.') +
+    '<b>4. The post</b>' + ta('draft', 'Draft (edit freely; tick "rebuild" to rebuild it from the boxes above)', '', 8) +
+    '<label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="rebuild" value="yes" style="width:auto"> Rebuild the draft from the boxes above</label>' +
+    sel('status', 'Status', POST_STATUSES) + '<button>' + (r.id ? 'Save' : 'Add to queue') + '</button>');
+}
+function postPage_(t, msg, open, status) {
+  var rows = rows_('Posts').reverse();
+  var show = rows.filter(function (r) { return status ? r.status === status : r.status !== 'dropped' && r.status !== 'posted'; });
+  var counts = POST_STATUSES.map(function (s) { var n = rows.filter(function (r) { return r.status === s; }).length;
+    return '<a class="btn' + (status === s ? '' : ' light') + '" href="' + link_({ t: t, view: 'posts', status: s }) + '">' + s + ' ' + n + '</a>'; }).join('');
+  var list = show.map(function (r) {
+    var flags = postFlags_(r.draft), isOpen = open === r.id;
+    return '<div class="card" id="' + esc_(r.id) + '"><span class="pill">' + esc_(r.status) + '</span> <span class="pill">' + esc_(r.topic) + '</span>' +
+      (r.verdict ? ' <span class="pill">' + esc_(r.verdict) + '</span>' : '') + '<div style="margin-top:6px"><b>' + esc_(String(r.claim).slice(0, 160)) + '</b></div>' +
+      (flags.length ? '<ul class="iss">' + flags.map(function (f) { return '<li class="bad">' + esc_(f) + '</li>'; }).join('') + '</ul>' : '') +
+      (r.draft ? '<details' + (isOpen ? ' open' : '') + '><summary>Post draft (' + String(r.draft).length + ' characters)</summary><pre id="d-' + esc_(r.id) + '" style="white-space:pre-wrap;font-family:inherit;background:#faf7f0;padding:10px;border-radius:8px">' + esc_(r.draft) + '</pre>' +
+        '<button type="button" onclick="navigator.clipboard.writeText(document.getElementById(\'d-' + esc_(r.id) + '\').innerText).then(function(){this.textContent=\'Copied\'}.bind(this))">Copy post</button></details>' : '') +
+      '<details' + (isOpen ? ' open' : '') + '><summary>Edit / fact-check</summary>' + postForm_(t, r) + '</details></div>';
+  }).join('') || '<div class="card muted">Nothing here. Add a claim below.</div>';
+  var body = (msg ? '<div class="card ok">' + esc_(msg) + '</div>' : '') +
+    '<div class="card"><b>Faith &amp; Findings — Post Studio</b><div class="muted">Check a viral claim, then turn it into one ready-to-paste post. Nothing is posted from here.</div>' +
+    '<div style="margin-top:8px">' + counts + '<a class="btn light" href="' + link_({ t: t, view: 'posts' }) + '">Open items</a></div></div>' +
+    '<div class="card"><details><summary><b>How to check a claim (7 questions)</b></summary><ol>' + POST_CHECKS.map(function (c) { return '<li><b>' + esc_(c[0]) + '</b> ' + esc_(c[1]) + '</li>'; }).join('') +
+    '</ol><div>' + POST_LINKS.map(function (l) { return '<a class="btn light" href="' + l[1] + '" target="_blank">' + esc_(l[0]) + '</a>'; }).join('') + '</div></details></div>' +
+    list + '<div class="card"><details' + (!rows.length ? ' open' : '') + '><summary><b>Add a claim</b></summary>' + postForm_(t, null) + '</details></div>' +
+    '<p class="muted">FNF rules built in: one post per topic, no "going around" openers, no NBA framing, testimony light and non-identifying.</p>';
+  return page_('Post Studio', body, t);
+}
+
+var _postOrigDoGet = doGet;
+doGet = function (e) {
+  var p = (e && e.parameter) || {};
+  if (p.view === 'posts' && !p.front && !p.card && !p.vcf && !p.pin && tokenOk_(p.t)) {
+    var msg = '';
+    try { msg = act_(p); } catch (err) { msg = 'Could not do that: ' + err.message; }
+    return postPage_(p.t, msg, p.open || '', POST_STATUSES.indexOf(p.status) >= 0 && !p.a ? p.status : '');
+  }
+  return _postOrigDoGet(e);
+};
+var _postOrigPage = page_;
+page_ = function (title, body, t) {
+  var out = _postOrigPage(title, body, t);
+  if (!t) return out;
+  var c = out.getContent();
+  if (c.indexOf('>Post Studio</a>') < 0) c = c.replace('>Listings &amp; cards</a>', '>Listings &amp; cards</a><a class="btn light" href="' + link_({ t: t, view: 'posts' }) + '" target="_top">Post Studio</a>');
+  return HtmlService.createHtmlOutput(c).setTitle(APP.NAME).addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
+};
+
+/** Run once from the editor (safe to re-run): creates the Posts tab and notes it in CAIOCC. */
+function setupPosts() {
+  var ss = ss_(), sh = ss.getSheetByName('Posts');
+  if (!sh) sh = ss.insertSheet('Posts');
+  if (sh.getLastRow() === 0) { sh.appendRow(TABS.Posts); sh.setFrozenRows(1); sh.getRange(1, 1, 1, TABS.Posts.length).setFontWeight('bold'); }
+  var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  var reg = SpreadsheetApp.openById(CAIOCC_REGISTRY_ID), app = reg.getSheetByName('Applications'), head = app.getRange(1, 1, 1, app.getLastColumn()).getValues()[0];
+  var v = app.getRange(2, 1, app.getLastRow() - 1, head.length).getValues(), out = [];
+  for (var i = 0; i < v.length; i++) if (String(v[i][head.indexOf('Name')]) === 'Crispus Profit Engine') {
+    var old = String(v[i][head.indexOf('Notes')] || '');
+    if (old.indexOf('Post Studio') < 0) {
+      app.getRange(i + 2, head.indexOf('Notes') + 1).setValue(old + ' | v1.9 (Nov 7 2026): front-page qualifier chips + FAQ. v2.0: Faith & Findings Post Studio ' + EXEC_URL + '?view=posts (PIN) — fact-check builder, Posts tab.');
+      app.getRange(i + 2, head.indexOf('UpdatedAt') + 1).setValue(now); out.push('noted');
+    }
+  }
+  Logger.log('Posts tab ready; ' + (out.join(',') || 'CAIOCC already noted') + ' | render ' + postPage_(token_(), '', '', '').getContent().length);
+}

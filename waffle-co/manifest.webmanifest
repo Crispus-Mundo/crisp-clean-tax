@@ -1,0 +1,62 @@
+{
+ "name": "The Detroit Waffle Co.",
+ "short_name": "Waffle Co.",
+ "description": "Business app for The Detroit Waffle Co. \u2014 sprint, website, menu board, truck build-out, plans and paperwork. Works offline.",
+ "id": "./",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#0E4D2A",
+ "theme_color": "#0E4D2A",
+ "icons": [
+  {
+   "src": "icons/icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icons/icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "icons/maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "Sprint tasks",
+   "url": "./#sprint",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "Website & menu board",
+   "url": "./#site",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "Files & tools",
+   "url": "./#files",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  }
+ ]
+}
